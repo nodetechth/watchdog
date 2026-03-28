@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Browserbase from "@browserbasehq/sdk";
 import { chromium, Browser, Page } from "playwright-core";
-import { Document, Paragraph, TextRun, Packer, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, convertMillimetersToTwip } from "docx";
+import { Document, Paragraph, TextRun, Packer, AlignmentType, convertMillimetersToTwip, TabStopType, TabStopPosition } from "docx";
 import * as crypto from "crypto";
 import { LegalClaimType } from "@/types";
 import { generateClaimText } from "@/lib/templates/legal-templates";
@@ -207,12 +207,6 @@ async function generateEvidenceDocx(data: {
             : "[投稿内容]",
         });
 
-  const borderStyle = {
-    style: BorderStyle.SINGLE,
-    size: 1,
-    color: "000000",
-  };
-
   const doc = new Document({
     styles: {
       default: {
@@ -237,6 +231,7 @@ async function generateEvidenceDocx(data: {
           },
         },
         children: [
+          // タイトル
           new Paragraph({
             children: [
               new TextRun({
@@ -248,6 +243,7 @@ async function generateEvidenceDocx(data: {
             alignment: AlignmentType.CENTER,
             spacing: { after: 400 },
           }),
+          // 注意書き
           new Paragraph({
             children: [
               new TextRun({
@@ -259,69 +255,92 @@ async function generateEvidenceDocx(data: {
             ],
             spacing: { after: 600 },
           }),
-          new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: [
-              new TableRow({
-                children: [
-                  new TableCell({
-                    width: { size: 25, type: WidthType.PERCENTAGE },
-                    borders: { top: borderStyle, bottom: borderStyle, left: borderStyle, right: borderStyle },
-                    children: [new Paragraph({ children: [new TextRun({ text: "号証", bold: true })] })],
-                  }),
-                  new TableCell({
-                    width: { size: 30, type: WidthType.PERCENTAGE },
-                    borders: { top: borderStyle, bottom: borderStyle, left: borderStyle, right: borderStyle },
-                    children: [new Paragraph({ children: [new TextRun({ text: "標目", bold: true })] })],
-                  }),
-                  new TableCell({
-                    width: { size: 20, type: WidthType.PERCENTAGE },
-                    borders: { top: borderStyle, bottom: borderStyle, left: borderStyle, right: borderStyle },
-                    children: [new Paragraph({ children: [new TextRun({ text: "作成年月日", bold: true })] })],
-                  }),
-                  new TableCell({
-                    width: { size: 25, type: WidthType.PERCENTAGE },
-                    borders: { top: borderStyle, bottom: borderStyle, left: borderStyle, right: borderStyle },
-                    children: [new Paragraph({ children: [new TextRun({ text: "作成者", bold: true })] })],
-                  }),
-                ],
-              }),
-              new TableRow({
-                children: [
-                  new TableCell({
-                    borders: { top: borderStyle, bottom: borderStyle, left: borderStyle, right: borderStyle },
-                    children: [new Paragraph({ children: [new TextRun({ text: data.evidenceNumber })] })],
-                  }),
-                  new TableCell({
-                    borders: { top: borderStyle, bottom: borderStyle, left: borderStyle, right: borderStyle },
-                    children: [new Paragraph({ children: [new TextRun({ text: "SNS投稿キャプチャ" })] })],
-                  }),
-                  new TableCell({
-                    borders: { top: borderStyle, bottom: borderStyle, left: borderStyle, right: borderStyle },
-                    children: [new Paragraph({ children: [new TextRun({ text: data.metadata.postedAt || "（投稿日時参照）" })] })],
-                  }),
-                  new TableCell({
-                    borders: { top: borderStyle, bottom: borderStyle, left: borderStyle, right: borderStyle },
-                    children: [new Paragraph({ children: [new TextRun({ text: data.metadata.posterId || "（相手方）" })] })],
-                  }),
-                ],
-              }),
+          // 証拠情報（テキスト形式）
+          new Paragraph({
+            children: [
+              new TextRun({ text: "１．号証番号", bold: true }),
             ],
-          }),
-          new Paragraph({
-            children: [new TextRun({ text: `取得URL：${data.url}`, size: 20 })],
-            spacing: { before: 400, after: 100 },
-          }),
-          new Paragraph({
-            children: [new TextRun({ text: `取得日時：${data.capturedAt}`, size: 20 })],
             spacing: { after: 100 },
           }),
           new Paragraph({
-            children: [new TextRun({ text: `SHA-256：${data.hash}`, size: 16, font: "Courier New" })],
-            spacing: { after: 400 },
+            children: [
+              new TextRun({ text: `　　${data.evidenceNumber}` }),
+            ],
+            spacing: { after: 200 },
           }),
           new Paragraph({
-            children: [new TextRun({ text: "【立証趣旨】", bold: true })],
+            children: [
+              new TextRun({ text: "２．標目", bold: true }),
+            ],
+            spacing: { after: 100 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "　　SNS投稿キャプチャ（X / 旧Twitter）" }),
+            ],
+            spacing: { after: 200 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "３．作成者", bold: true }),
+            ],
+            spacing: { after: 100 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: `　　${data.metadata.posterId || "（相手方）"}` }),
+            ],
+            spacing: { after: 200 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "４．作成年月日", bold: true }),
+            ],
+            spacing: { after: 100 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: `　　${data.metadata.postedAt || "（投稿日時参照）"}` }),
+            ],
+            spacing: { after: 200 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "５．取得URL", bold: true }),
+            ],
+            spacing: { after: 100 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: `　　${data.url}`, size: 20 }),
+            ],
+            spacing: { after: 200 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "６．取得日時", bold: true }),
+            ],
+            spacing: { after: 100 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: `　　${data.capturedAt}` }),
+            ],
+            spacing: { after: 200 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "７．ハッシュ値（SHA-256）", bold: true }),
+            ],
+            spacing: { after: 100 },
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: `　　${data.hash}`, size: 18, font: "Courier New" })],
+            spacing: { after: 400 },
+          }),
+          // 立証趣旨
+          new Paragraph({
+            children: [new TextRun({ text: "８．立証趣旨", bold: true })],
             spacing: { before: 400, after: 200 },
           }),
           new Paragraph({
