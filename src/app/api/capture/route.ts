@@ -49,35 +49,21 @@ export async function POST(req: Request) {
     const context = browser.contexts()[0];
     const page: Page = context.pages()[0];
 
-    // ビューポート設定
-    await page.setViewportSize({ width: 1280, height: 2000 });
+    // ビューポート設定（単一投稿用に最適化）
+    await page.setViewportSize({ width: 1280, height: 900 });
 
     // URLへ移動
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
 
-    // 投稿が読み込まれるまで待機（短縮）
+    // 投稿が読み込まれるまで待機
     await page.waitForTimeout(3000);
-
-    // スレッドがある場合は展開（スキップして高速化）
-    // try {
-    //   const showRepliesButton = await page.$('div[role="button"]:has-text("Show")');
-    //   if (showRepliesButton) {
-    //     await showRepliesButton.click();
-    //     await page.waitForTimeout(2000);
-    //   }
-    // } catch {
-    //   // ボタンが見つからない場合は無視
-    // }
-
-    // 自動スクロール（短縮版）
-    await quickScroll(page);
 
     // メタデータを抽出
     const metadata = await extractPostMetadata(page);
 
-    // フルページPDFとしてキャプチャ
+    // 単一投稿をPDFとしてキャプチャ
     const pdfBuffer = await page.pdf({
-      format: "A3",
+      format: "A4",
       printBackground: true,
       margin: {
         top: "10mm",
@@ -135,19 +121,6 @@ export async function POST(req: Request) {
       await browser.close();
     }
   }
-}
-
-// 高速スクロール関数
-async function quickScroll(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    // 一度下までスクロールして戻る
-    window.scrollTo(0, document.body.scrollHeight);
-  });
-  await page.waitForTimeout(500);
-  await page.evaluate(() => {
-    window.scrollTo(0, 0);
-  });
-  await page.waitForTimeout(500);
 }
 
 // 投稿メタデータを抽出
