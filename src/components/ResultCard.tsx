@@ -4,19 +4,52 @@ import { ShieldCheck, FileText, Scale, Download, Copy, Check } from "lucide-reac
 import { useState } from "react";
 
 interface ResultCardProps {
-  pdfUrl: string;
-  docxUrl: string;
+  pdfBase64: string;
+  docxBase64: string;
   hash: string;
   capturedAt: string;
 }
 
-export function ResultCard({ pdfUrl, docxUrl, hash, capturedAt }: ResultCardProps) {
+export function ResultCard({ pdfBase64, docxBase64, hash, capturedAt }: ResultCardProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopyHash = async () => {
     await navigator.clipboard.writeText(hash);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const downloadFile = (base64: string, filename: string, mimeType: string) => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: mimeType });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadPdf = () => {
+    const timestamp = new Date().toISOString().slice(0, 10);
+    downloadFile(pdfBase64, `evidence_${timestamp}.pdf`, "application/pdf");
+  };
+
+  const handleDownloadDocx = () => {
+    const timestamp = new Date().toISOString().slice(0, 10);
+    downloadFile(
+      docxBase64,
+      `evidence_description_${timestamp}.docx`,
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    );
   };
 
   return (
@@ -65,10 +98,9 @@ export function ResultCard({ pdfUrl, docxUrl, hash, capturedAt }: ResultCardProp
 
       {/* ダウンロードボタン */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <a
-          href={pdfUrl}
-          download
-          className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-colors group"
+        <button
+          onClick={handleDownloadPdf}
+          className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-colors group text-left"
         >
           <div className="flex items-center">
             <FileText className="w-5 h-5 text-rose-400 mr-3" />
@@ -78,12 +110,11 @@ export function ResultCard({ pdfUrl, docxUrl, hash, capturedAt }: ResultCardProp
             </div>
           </div>
           <Download className="w-4 h-4 text-white/30 group-hover:text-white transition-colors" />
-        </a>
+        </button>
 
-        <a
-          href={docxUrl}
-          download
-          className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-colors group"
+        <button
+          onClick={handleDownloadDocx}
+          className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-colors group text-left"
         >
           <div className="flex items-center">
             <Scale className="w-5 h-5 text-indigo-400 mr-3" />
@@ -93,7 +124,7 @@ export function ResultCard({ pdfUrl, docxUrl, hash, capturedAt }: ResultCardProp
             </div>
           </div>
           <Download className="w-4 h-4 text-white/30 group-hover:text-white transition-colors" />
-        </a>
+        </button>
       </div>
 
       {/* 注意書き */}

@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
+    "@browserbasehq/sdk": "^2.9.0",
     "@browserbasehq/stagehand": "^3.1.0",
     "date-fns": "^4.1.0",
     "docx": "^9.6.1",

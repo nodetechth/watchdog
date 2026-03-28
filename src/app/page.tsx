@@ -7,8 +7,8 @@ import { ResultCard } from "@/components/ResultCard";
 import { ProcessState, LegalClaimType } from "@/types";
 
 interface CaptureResult {
-  pdfUrl: string;
-  docxUrl: string;
+  pdfBase64: string;
+  docxBase64: string;
   hash: string;
   capturedAt: string;
   postText?: string;
@@ -48,8 +48,8 @@ export default function Home() {
 
       setState("done");
       setResult({
-        pdfUrl: responseData.pdfUrl,
-        docxUrl: responseData.docxUrl,
+        pdfBase64: responseData.pdfBase64,
+        docxBase64: responseData.docxBase64,
         hash: responseData.hash,
         capturedAt: responseData.capturedAt,
         postText: responseData.postText,
@@ -104,8 +104,8 @@ export default function Home() {
           {/* Result Display */}
           {state === "done" && result && (
             <ResultCard
-              pdfUrl={result.pdfUrl}
-              docxUrl={result.docxUrl}
+              pdfBase64={result.pdfBase64}
+              docxBase64={result.docxBase64}
               hash={result.hash}
               capturedAt={result.capturedAt}
             />

@@ -1,25 +1,10 @@
 import { NextResponse } from "next/server";
-import { chromium, Browser, Page } from "playwright";
+import Browserbase from "@browserbasehq/sdk";
+import { chromium, Browser, Page } from "playwright-core";
 import { Document, Paragraph, TextRun, Packer, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, convertMillimetersToTwip } from "docx";
 import * as crypto from "crypto";
-import * as fs from "fs";
-import * as path from "path";
 import { LegalClaimType } from "@/types";
 import { generateClaimText } from "@/lib/templates/legal-templates";
-
-// RFC3161タイムスタンプ付与（将来実装用スタブ）
-async function applyTimestampAndSignature(pdfBuffer: Buffer): Promise<Buffer> {
-  // TODO: セイコーソリューションズ「かんたん電子契約」API対応
-  // const API_KEY = process.env.SEIKO_API_KEY;
-  // const res = await fetch("https://api.seiko-solutions.example/timestamp", {
-  //   method: "POST",
-  //   headers: { "Authorization": `Bearer ${API_KEY}` },
-  //   body: pdfBuffer
-  // });
-  // return Buffer.from(await res.arrayBuffer());
-
-  return pdfBuffer;
-}
 
 // X投稿からメタデータを抽出
 interface PostMetadata {
@@ -42,13 +27,30 @@ export async function POST(req: Request) {
       );
     }
 
-    // Playwrightでブラウザを起動
-    browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({
-      viewport: { width: 1280, height: 2000 },
-      locale: "ja-JP",
+    // Browserbaseの設定確認
+    const browserbaseApiKey = process.env.BROWSERBASE_API_KEY;
+    const browserbaseProjectId = process.env.BROWSERBASE_PROJECT_ID;
+
+    if (!browserbaseApiKey || !browserbaseProjectId) {
+      return NextResponse.json(
+        { error: "Browserbaseの設定が必要です。環境変数を確認してください。" },
+        { status: 500 }
+      );
+    }
+
+    // Browserbaseでセッション作成
+    const bb = new Browserbase({ apiKey: browserbaseApiKey });
+    const session = await bb.sessions.create({
+      projectId: browserbaseProjectId,
     });
-    const page: Page = await context.newPage();
+
+    // PlaywrightでBrowserbaseに接続
+    browser = await chromium.connectOverCDP(session.connectUrl);
+    const context = browser.contexts()[0];
+    const page: Page = context.pages()[0];
+
+    // ビューポート設定
+    await page.setViewportSize({ width: 1280, height: 2000 });
 
     // URLへ移動
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
@@ -56,7 +58,7 @@ export async function POST(req: Request) {
     // 投稿が読み込まれるまで待機
     await page.waitForTimeout(5000);
 
-    // スレッドがある場合は展開（返信を表示ボタンをクリック）
+    // スレッドがある場合は展開
     try {
       const showRepliesButton = await page.$('div[role="button"]:has-text("Show"), div[role="button"]:has-text("返信を表示")');
       if (showRepliesButton) {
@@ -67,10 +69,10 @@ export async function POST(req: Request) {
       // ボタンが見つからない場合は無視
     }
 
-    // スレッドが長い場合は自動スクロール
+    // 自動スクロール
     await autoScroll(page);
 
-    // 投稿のメタデータを抽出
+    // メタデータを抽出
     const metadata = await extractPostMetadata(page);
 
     // フルページPDFとしてキャプチャ
@@ -87,9 +89,6 @@ export async function POST(req: Request) {
 
     // SHA-256ハッシュを計算
     const hash = crypto.createHash("sha256").update(pdfBuffer).digest("hex");
-
-    // タイムスタンプを付与（将来実装）
-    const stampedPdfBuffer = await applyTimestampAndSignature(pdfBuffer);
 
     // 取得日時
     const capturedAt = new Date().toLocaleString("ja-JP", {
@@ -113,34 +112,15 @@ export async function POST(req: Request) {
       metadata,
     });
 
-    // ファイルを保存
-    const publicDir = path.join(process.cwd(), "public", "downloads");
-    if (!fs.existsSync(publicDir)) {
-      fs.mkdirSync(publicDir, { recursive: true });
-    }
-
-    const timestampId = Date.now().toString();
-    const pdfFilename = `evidence_${timestampId}.pdf`;
-    const docxFilename = `evidence_description_${timestampId}.docx`;
-
-    fs.writeFileSync(path.join(publicDir, pdfFilename), stampedPdfBuffer);
-    fs.writeFileSync(path.join(publicDir, docxFilename), docxBuffer);
-
-    // TODO: Firestoreに保存（Firebase設定後に有効化）
-    // await saveEvidenceRecord({
-    //   url,
-    //   hash,
-    //   capturedAt,
-    //   pdfStoragePath: `evidence/${pdfFilename}`,
-    //   docxStoragePath: `documents/${docxFilename}`,
-    //   metadata,
-    // });
+    // Base64エンコードしてレスポンス
+    const pdfBase64 = pdfBuffer.toString("base64");
+    const docxBase64 = docxBuffer.toString("base64");
 
     return NextResponse.json({
       success: true,
       hash,
-      pdfUrl: `/downloads/${pdfFilename}`,
-      docxUrl: `/downloads/${docxFilename}`,
+      pdfBase64,
+      docxBase64,
       capturedAt,
       postText: metadata.postText,
       posterId: metadata.posterId,
@@ -163,7 +143,7 @@ async function autoScroll(page: Page): Promise<void> {
     await new Promise<void>((resolve) => {
       let totalHeight = 0;
       const distance = 500;
-      const maxScrolls = 10; // 最大スクロール回数
+      const maxScrolls = 10;
       let scrollCount = 0;
 
       const timer = setInterval(() => {
@@ -174,7 +154,7 @@ async function autoScroll(page: Page): Promise<void> {
 
         if (totalHeight >= scrollHeight || scrollCount >= maxScrolls) {
           clearInterval(timer);
-          window.scrollTo(0, 0); // 先頭に戻る
+          window.scrollTo(0, 0);
           resolve();
         }
       }, 300);
@@ -188,17 +168,14 @@ async function autoScroll(page: Page): Promise<void> {
 async function extractPostMetadata(page: Page): Promise<PostMetadata> {
   try {
     const metadata = await page.evaluate(() => {
-      // 投稿テキストを抽出
       const tweetTextElement = document.querySelector('[data-testid="tweetText"]');
       const postText = tweetTextElement?.textContent || "";
 
-      // 投稿者IDを抽出
       const userLinkElement = document.querySelector('a[href*="/status/"]');
       const href = userLinkElement?.getAttribute("href") || "";
       const posterIdMatch = href.match(/\/([^/]+)\/status\//);
       const posterId = posterIdMatch ? `@${posterIdMatch[1]}` : "";
 
-      // 投稿日時を抽出（time要素のdatetime属性から）
       const timeElement = document.querySelector("time");
       const datetime = timeElement?.getAttribute("datetime") || "";
       let postedAt = "";
@@ -234,7 +211,6 @@ async function generateEvidenceDocx(data: {
   customClaimText?: string;
   metadata: PostMetadata;
 }): Promise<Buffer> {
-  // 立証趣旨テキストを生成
   const claimText =
     data.claimType === "custom" && data.customClaimText
       ? data.customClaimText
@@ -275,7 +251,6 @@ async function generateEvidenceDocx(data: {
           },
         },
         children: [
-          // タイトル
           new Paragraph({
             children: [
               new TextRun({
@@ -287,8 +262,6 @@ async function generateEvidenceDocx(data: {
             alignment: AlignmentType.CENTER,
             spacing: { after: 400 },
           }),
-
-          // 注意書き
           new Paragraph({
             children: [
               new TextRun({
@@ -300,8 +273,6 @@ async function generateEvidenceDocx(data: {
             ],
             spacing: { after: 600 },
           }),
-
-          // 証拠一覧表
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             rows: [
@@ -351,8 +322,6 @@ async function generateEvidenceDocx(data: {
               }),
             ],
           }),
-
-          // 取得情報
           new Paragraph({
             children: [new TextRun({ text: `取得URL：${data.url}`, size: 20 })],
             spacing: { before: 400, after: 100 },
@@ -365,8 +334,6 @@ async function generateEvidenceDocx(data: {
             children: [new TextRun({ text: `SHA-256：${data.hash}`, size: 16, font: "Courier New" })],
             spacing: { after: 400 },
           }),
-
-          // 立証趣旨
           new Paragraph({
             children: [new TextRun({ text: "【立証趣旨】", bold: true })],
             spacing: { before: 400, after: 200 },
@@ -375,8 +342,6 @@ async function generateEvidenceDocx(data: {
             children: [new TextRun({ text: claimText })],
             spacing: { after: 400 },
           }),
-
-          // 真正性担保
           new Paragraph({
             children: [new TextRun({ text: "【証拠の真正性について】", bold: true })],
             spacing: { before: 600, after: 200 },
