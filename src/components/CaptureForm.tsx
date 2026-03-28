@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link2, Loader2, ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
 import { LegalTypeSelector } from "./LegalTypeSelector";
 import { LegalClaimType, ProcessState } from "@/types";
@@ -13,10 +13,17 @@ interface CaptureFormProps {
     evidenceNumber: string;
   }) => Promise<void>;
   state: ProcessState;
+  initialUrl?: string;
 }
 
-export function CaptureForm({ onSubmit, state }: CaptureFormProps) {
-  const [url, setUrl] = useState("");
+export function CaptureForm({ onSubmit, state, initialUrl = "" }: CaptureFormProps) {
+  const [url, setUrl] = useState(initialUrl);
+
+  useEffect(() => {
+    if (initialUrl) {
+      setUrl(initialUrl);
+    }
+  }, [initialUrl]);
   const [claimType, setClaimType] = useState<LegalClaimType>("defamation");
   const [customClaimText, setCustomClaimText] = useState("");
   const [evidenceNumber, setEvidenceNumber] = useState("甲第1号証");
