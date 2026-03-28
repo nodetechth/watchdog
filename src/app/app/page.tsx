@@ -108,7 +108,7 @@ function AppContent() {
           <div className="inline-flex items-center justify-center p-3 bg-white/5 rounded-2xl border border-white/10 mb-4 backdrop-blur-md shadow-xl">
             <ShieldCheck className="w-10 h-10 text-indigo-400" />
             <h1 className="ml-3 text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
-              Evidence Guardian
+              WatchDog
             </h1>
           </div>
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-white mb-4">

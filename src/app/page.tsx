@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { ShieldCheck, AlertTriangle, Clock, FileText, Hash, FileCheck, ArrowRight, CheckCircle } from "lucide-react";
-import { HeroForm } from "@/components/HeroForm";
+import { ShieldCheck, AlertTriangle, Clock, FileText, Hash, FileCheck, ArrowRight } from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -44,11 +43,6 @@ export default function LandingPage() {
                 今すぐ証拠を保全する
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
-            </div>
-
-            {/* URL Input Form */}
-            <div className="pt-8">
-              <HeroForm />
             </div>
           </div>
         </div>
@@ -119,7 +113,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold">
-              Evidence Guardian が提供する
+              WatchDog が提供する
               <br />
               <span className="text-blue-400">3つの技術的担保</span>
             </h2>
@@ -189,7 +183,7 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-6 h-6 text-blue-500" />
-              <span className="font-semibold">Evidence Guardian</span>
+              <span className="font-semibold">WatchDog</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-gray-400">
               <span>運営: nodetech.jp</span>
