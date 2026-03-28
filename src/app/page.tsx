@@ -30,17 +30,29 @@ export default function Home() {
     setResult(null);
 
     try {
+      // 90秒タイムアウト設定
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
+
       const res = await fetch("/api/capture", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       setState("processing");
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "キャプチャに失敗しました");
+        let errorMessage = "キャプチャに失敗しました";
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // JSONパースに失敗した場合はデフォルトメッセージを使用
+        }
+        throw new Error(errorMessage);
       }
 
       setState("generating");
@@ -56,7 +68,18 @@ export default function Home() {
       });
     } catch (err: unknown) {
       console.error(err);
-      const errorMessage = err instanceof Error ? err.message : "予期せぬエラーが発生しました";
+      let errorMessage = "予期せぬエラーが発生しました";
+
+      if (err instanceof Error) {
+        if (err.name === "AbortError") {
+          errorMessage = "処理がタイムアウトしました。しばらく待ってから再度お試しください。";
+        } else if (err.message === "Failed to fetch") {
+          errorMessage = "サーバーとの通信に失敗しました。処理中の可能性があります。しばらく待ってから再度お試しください。";
+        } else {
+          errorMessage = err.message;
+        }
+      }
+
       setErrorMsg(errorMessage);
       setState("error");
     }

@@ -53,24 +53,24 @@ export async function POST(req: Request) {
     await page.setViewportSize({ width: 1280, height: 2000 });
 
     // URLへ移動
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
 
-    // 投稿が読み込まれるまで待機
-    await page.waitForTimeout(5000);
+    // 投稿が読み込まれるまで待機（短縮）
+    await page.waitForTimeout(3000);
 
-    // スレッドがある場合は展開
-    try {
-      const showRepliesButton = await page.$('div[role="button"]:has-text("Show"), div[role="button"]:has-text("返信を表示")');
-      if (showRepliesButton) {
-        await showRepliesButton.click();
-        await page.waitForTimeout(3000);
-      }
-    } catch {
-      // ボタンが見つからない場合は無視
-    }
+    // スレッドがある場合は展開（スキップして高速化）
+    // try {
+    //   const showRepliesButton = await page.$('div[role="button"]:has-text("Show")');
+    //   if (showRepliesButton) {
+    //     await showRepliesButton.click();
+    //     await page.waitForTimeout(2000);
+    //   }
+    // } catch {
+    //   // ボタンが見つからない場合は無視
+    // }
 
-    // 自動スクロール
-    await autoScroll(page);
+    // 自動スクロール（短縮版）
+    await quickScroll(page);
 
     // メタデータを抽出
     const metadata = await extractPostMetadata(page);
@@ -137,31 +137,17 @@ export async function POST(req: Request) {
   }
 }
 
-// 自動スクロール関数
-async function autoScroll(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    await new Promise<void>((resolve) => {
-      let totalHeight = 0;
-      const distance = 500;
-      const maxScrolls = 10;
-      let scrollCount = 0;
-
-      const timer = setInterval(() => {
-        const scrollHeight = document.body.scrollHeight;
-        window.scrollBy(0, distance);
-        totalHeight += distance;
-        scrollCount++;
-
-        if (totalHeight >= scrollHeight || scrollCount >= maxScrolls) {
-          clearInterval(timer);
-          window.scrollTo(0, 0);
-          resolve();
-        }
-      }, 300);
-    });
+// 高速スクロール関数
+async function quickScroll(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    // 一度下までスクロールして戻る
+    window.scrollTo(0, document.body.scrollHeight);
   });
-
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(500);
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+  });
+  await page.waitForTimeout(500);
 }
 
 // 投稿メタデータを抽出
