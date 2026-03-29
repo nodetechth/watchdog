@@ -12,29 +12,26 @@ import {
 import * as crypto from "crypto";
 import * as admin from "firebase-admin";
 
-// Initialize Firebase Admin
+/**
+ * Firebase Admin SDK initialization using Application Default Credentials (ADC)
+ *
+ * On Cloud Run, ADC automatically uses the service account assigned to the Cloud Run service.
+ * No service account key file is needed.
+ *
+ * Required environment variables:
+ * - FIREBASE_STORAGE_BUCKET: Firebase Storage bucket name (e.g., "your-project.appspot.com")
+ *
+ * Cloud Run service account needs the following IAM roles:
+ * - roles/datastore.user (for Firestore)
+ * - roles/storage.objectAdmin (for Firebase Storage)
+ */
 const app = admin.initializeApp({
-  credential: admin.credential.cert({
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: getPrivateKey(),
-  }),
+  credential: admin.credential.applicationDefault(),
   storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
 });
 
 const db = admin.firestore();
 const bucket = admin.storage().bucket();
-
-function getPrivateKey(): string {
-  const key = process.env.FIREBASE_PRIVATE_KEY;
-  if (!key) {
-    throw new Error("FIREBASE_PRIVATE_KEY is not set");
-  }
-  if (key.includes("-----BEGIN")) {
-    return key.replace(/\\n/g, "\n");
-  }
-  return Buffer.from(key, "base64").toString("utf-8");
-}
 
 // Legal claim types and templates
 type LegalClaimType = "defamation" | "insult" | "privacy" | "custom";
@@ -457,7 +454,91 @@ server.get("/", (req: Request, res: Response) => {
   res.status(200).send("WatchDog Capture Service is running");
 });
 
-// Capture endpoint
+// Create job endpoint (called from Vercel)
+server.post("/jobs", async (req: Request, res: Response) => {
+  try {
+    const { url, evidenceNumber, evidenceType, customClaimText } = req.body;
+
+    if (!url) {
+      res.status(400).json({ error: "url is required" });
+      return;
+    }
+
+    // Generate job ID
+    const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Create job document in Firestore
+    const jobData = {
+      jobId,
+      status: "pending" as const,
+      url,
+      evidenceNumber: evidenceNumber || "甲第1号証",
+      evidenceType: evidenceType || "defamation",
+      customClaimText: customClaimText || null,
+      pdfUrl: null,
+      docxUrl: null,
+      hashValue: null,
+      capturedAt: null,
+      createdAt: admin.firestore.Timestamp.now(),
+      errorMessage: null,
+    };
+
+    await db.collection("jobs").doc(jobId).set(jobData);
+
+    // Start capture process asynchronously (don't await)
+    capturePost(
+      jobId,
+      url,
+      evidenceNumber || "甲第1号証",
+      evidenceType || "defamation",
+      customClaimText
+    ).catch((err) => {
+      console.error("Capture error:", err);
+    });
+
+    res.status(202).json({ jobId, message: "Capture started" });
+  } catch (error) {
+    console.error("Job creation error:", error);
+    res.status(500).json({ error: "ジョブの作成に失敗しました" });
+  }
+});
+
+// Get job status endpoint (called from Vercel for polling)
+server.get("/jobs/:jobId", async (req: Request, res: Response) => {
+  try {
+    const { jobId } = req.params;
+
+    if (!jobId) {
+      res.status(400).json({ error: "jobId is required" });
+      return;
+    }
+
+    const jobDoc = await db.collection("jobs").doc(jobId).get();
+
+    if (!jobDoc.exists) {
+      res.status(404).json({ error: "Job not found" });
+      return;
+    }
+
+    const jobData = jobDoc.data();
+
+    res.status(200).json({
+      jobId: jobData?.jobId,
+      status: jobData?.status,
+      pdfUrl: jobData?.pdfUrl,
+      docxUrl: jobData?.docxUrl,
+      hashValue: jobData?.hashValue,
+      capturedAt: jobData?.capturedAt?.toDate?.()?.toISOString() || null,
+      evidenceNumber: jobData?.evidenceNumber,
+      errorMessage: jobData?.errorMessage,
+    });
+  } catch (error) {
+    console.error("Job status error:", error);
+    res.status(500).json({ error: "ステータスの取得に失敗しました" });
+  }
+});
+
+// Legacy capture endpoint (for backward compatibility)
 server.post("/", async (req: Request, res: Response) => {
   const { jobId, url, evidenceNumber, evidenceType, customClaimText } = req.body;
 
@@ -467,7 +548,6 @@ server.post("/", async (req: Request, res: Response) => {
   }
 
   // Start capture process asynchronously
-  // Don't await - respond immediately and process in background
   capturePost(
     jobId,
     url,

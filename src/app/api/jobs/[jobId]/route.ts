@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminDb } from "@/lib/firebase-admin";
 
 /**
  * Job Status Polling API
  *
- * Returns the current status of a capture job.
+ * Proxies status requests to Cloud Run, which handles Firestore operations.
+ * This avoids needing Firebase Admin credentials on Vercel.
  */
 
 export async function GET(
@@ -21,28 +21,32 @@ export async function GET(
       );
     }
 
-    const db = getAdminDb();
-    const jobDoc = await db.collection("jobs").doc(jobId).get();
-
-    if (!jobDoc.exists) {
+    const cloudRunUrl = process.env.CLOUD_RUN_URL;
+    if (!cloudRunUrl) {
       return NextResponse.json(
-        { error: "Job not found" },
-        { status: 404 }
+        { error: "キャプチャサービスが設定されていません" },
+        { status: 500 }
       );
     }
 
-    const jobData = jobDoc.data();
-
-    return NextResponse.json({
-      jobId: jobData?.jobId,
-      status: jobData?.status,
-      pdfUrl: jobData?.pdfUrl,
-      docxUrl: jobData?.docxUrl,
-      hashValue: jobData?.hashValue,
-      capturedAt: jobData?.capturedAt?.toDate?.()?.toISOString() || jobData?.capturedAt,
-      evidenceNumber: jobData?.evidenceNumber,
-      errorMessage: jobData?.errorMessage,
+    // Get job status from Cloud Run
+    const response = await fetch(`${cloudRunUrl}/jobs/${jobId}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
     });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return NextResponse.json(
+          { error: "Job not found" },
+          { status: 404 }
+        );
+      }
+      throw new Error("ステータスの取得に失敗しました");
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
     console.error("Job status error:", error);
     return NextResponse.json(

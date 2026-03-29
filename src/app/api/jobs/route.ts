@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminDb } from "@/lib/firebase-admin";
-import { v4 as uuidv4 } from "uuid";
 import { LegalClaimType } from "@/types";
 
 /**
  * Job Registration API
  *
- * Creates a new capture job in Firestore and triggers Cloud Run processing.
+ * Proxies job creation to Cloud Run, which handles Firestore operations.
+ * This avoids needing Firebase Admin credentials on Vercel.
  *
  * Required environment variable:
  * - CLOUD_RUN_URL: URL of the Cloud Run capture service
@@ -33,67 +32,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate job ID
-    const jobId = uuidv4();
-
-    // Get Firestore instance
-    const db = getAdminDb();
-
-    // Create job document
-    const jobData = {
-      jobId,
-      status: "pending" as const,
-      url,
-      evidenceNumber: evidenceNumber || "甲第1号証",
-      evidenceType: evidenceType || "defamation",
-      customClaimText: customClaimText || null,
-      pdfUrl: null,
-      docxUrl: null,
-      hashValue: null,
-      capturedAt: null,
-      createdAt: new Date(),
-      errorMessage: null,
-    };
-
-    await db.collection("jobs").doc(jobId).set(jobData);
-
-    // Trigger Cloud Run (fire-and-forget, don't wait for response)
     const cloudRunUrl = process.env.CLOUD_RUN_URL;
-    if (cloudRunUrl) {
-      // Don't await - let it process asynchronously
-      fetch(cloudRunUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jobId,
-          url,
-          evidenceNumber: evidenceNumber || "甲第1号証",
-          evidenceType: evidenceType || "defamation",
-          customClaimText: customClaimText || null,
-        }),
-      }).catch((err) => {
-        console.error("Failed to trigger Cloud Run:", err);
-        // Update job status to error if Cloud Run trigger fails
-        db.collection("jobs").doc(jobId).update({
-          status: "error",
-          errorMessage: "キャプチャサービスの起動に失敗しました",
-        });
-      });
-    } else {
-      console.warn("CLOUD_RUN_URL is not configured");
-      // For development/testing without Cloud Run
-      await db.collection("jobs").doc(jobId).update({
-        status: "error",
-        errorMessage: "キャプチャサービスが設定されていません（CLOUD_RUN_URL）",
-      });
+    if (!cloudRunUrl) {
+      return NextResponse.json(
+        { error: "キャプチャサービスが設定されていません" },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({ jobId });
+    // Send request to Cloud Run to create and process the job
+    const response = await fetch(`${cloudRunUrl}/jobs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url,
+        evidenceNumber: evidenceNumber || "甲第1号証",
+        evidenceType: evidenceType || "defamation",
+        customClaimText: customClaimText || null,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || "ジョブの作成に失敗しました");
+    }
+
+    const data = await response.json();
+    return NextResponse.json({ jobId: data.jobId });
   } catch (error) {
     console.error("Job creation error:", error);
-    return NextResponse.json(
-      { error: "ジョブの作成に失敗しました" },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : "ジョブの作成に失敗しました";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
