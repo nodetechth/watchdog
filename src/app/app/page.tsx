@@ -2,7 +2,8 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { ShieldCheck, Scale, Gavel, ExternalLink } from "lucide-react";
+import { ShieldCheck, Scale, Gavel, ExternalLink, HelpCircle } from "lucide-react";
+import Link from "next/link";
 import { CaptureForm } from "@/components/CaptureForm";
 import { ResultCard } from "@/components/ResultCard";
 import { ProcessState, LegalClaimType } from "@/types";
@@ -127,6 +128,18 @@ function AppContent() {
         {/* Action Card */}
         <div className="w-full max-w-2xl bg-white/[0.03] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-xl shadow-2xl">
           <CaptureForm onSubmit={handleCapture} state={state} initialUrl={prefilledUrl} />
+
+          {/* Help Link */}
+          <div className="mt-4 text-center">
+            <Link
+              href="/help"
+              target="_blank"
+              className="inline-flex items-center text-sm text-gray-400 hover:text-blue-400 transition-colors"
+            >
+              <HelpCircle className="w-4 h-4 mr-1" />
+              用語の意味・使い方がわからない方はこちら
+            </Link>
+          </div>
 
           {/* Error Display */}
           {errorMsg && (
