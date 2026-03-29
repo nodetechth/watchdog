@@ -61,14 +61,30 @@ export async function POST(req: Request) {
     // メタデータを抽出
     const metadata = await extractPostMetadata(page);
 
-    // 単一投稿をPDFとしてキャプチャ
+    // 証拠番号のフォールバック処理
+    const displayEvidenceNumber = evidenceNumber?.trim() || "甲第1号証";
+
+    // 単一投稿をPDFとしてキャプチャ（ヘッダーに証拠番号を表示）
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
+      displayHeaderFooter: true,
+      headerTemplate: `
+        <div style="width: 100%; font-size: 10px; padding: 5px 20px; display: flex; justify-content: space-between; align-items: center; font-family: 'MS Gothic', 'Hiragino Kaku Gothic ProN', sans-serif;">
+          <span style="font-weight: bold;">${displayEvidenceNumber}</span>
+          <span style="color: #666;">WatchDog 証拠保全</span>
+        </div>
+      `,
+      footerTemplate: `
+        <div style="width: 100%; font-size: 9px; padding: 5px 20px; display: flex; justify-content: space-between; align-items: center; font-family: 'MS Gothic', 'Hiragino Kaku Gothic ProN', sans-serif; color: #666;">
+          <span>取得日時: ${new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</span>
+          <span><span class="pageNumber"></span> / <span class="totalPages"></span></span>
+        </div>
+      `,
       margin: {
-        top: "10mm",
+        top: "25mm",
         right: "10mm",
-        bottom: "10mm",
+        bottom: "20mm",
         left: "10mm",
       },
     });
