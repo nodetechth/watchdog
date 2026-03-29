@@ -273,6 +273,7 @@ export default function LandingPage() {
               <span>運営: nodetech.jp</span>
               <a href="#" className="hover:text-white transition-colors">利用規約</a>
               <a href="#" className="hover:text-white transition-colors">プライバシーポリシー</a>
+              <Link href="/contact" className="hover:text-blue-400 transition-colors">広告掲載のご希望はこちら</Link>
             </div>
           </div>
         </div>

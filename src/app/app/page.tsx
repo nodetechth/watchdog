@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { ShieldCheck, Scale, Gavel, ExternalLink, HelpCircle } from "lucide-react";
+import { ShieldCheck, Scale, Gavel, HelpCircle, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { CaptureForm } from "@/components/CaptureForm";
 import { ResultCard } from "@/components/ResultCard";
@@ -178,21 +178,37 @@ function AppContent() {
           />
         </div>
 
+        {/* Lawyer Ad Section */}
+        <div className="mt-12 w-full max-w-2xl">
+          <div className="text-center mb-6">
+            <h3 className="text-lg font-semibold text-white mb-2">誹謗中傷に注力している弁護士</h3>
+            <p className="text-xs text-gray-400">
+              掲載している事務所は広告枠としてご契約いただいています。
+              <br />
+              法律相談・弁護士紹介を当サービスが行うものではありません。
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <AdSlotCard />
+            <AdSlotCard />
+            <AdSlotCard />
+            <AdSlotCard />
+          </div>
+
+          <p className="text-xs text-gray-500 text-center mt-4">
+            ※ 掲載内容は各事務所の責任において提供されます。
+            当サービスは法律相談・弁護士紹介を行うものではありません。
+          </p>
+        </div>
+
         {/* Legal Notice */}
         <div className="mt-12 text-center">
-          <p className="text-xs text-white/30 mb-4">
+          <p className="text-xs text-white/30">
             本サービスはエビデンス保全の支援ツールです。証拠説明書はAIが生成したサンプルであり、
             <br className="hidden md:block" />
             最終的な内容の確定はご自身の責任で行ってください。
           </p>
-          <a
-            href="#"
-            className="inline-flex items-center text-xs text-indigo-400/70 hover:text-indigo-400 transition-colors"
-          >
-            誹謗中傷に注力している弁護士を探す
-            <ExternalLink className="w-3 h-3 ml-1" />
-          </a>
-          <p className="text-[10px] text-white/20 mt-1">（広告枠）</p>
         </div>
       </main>
     </div>
@@ -225,6 +241,24 @@ function FeatureCard({
         <span className="text-white/80 font-medium text-sm">{title}</span>
       </div>
       <p className="text-white/40 text-xs">{description}</p>
+    </div>
+  );
+}
+
+function AdSlotCard() {
+  return (
+    <div className="min-h-40 bg-gray-800 border border-dashed border-gray-600 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
+      <p className="text-gray-400 text-lg font-medium mb-2">広告枠 募集中</p>
+      <p className="text-gray-500 text-sm mb-4">
+        事務所名・対応地域・注力分野などを掲載できます
+      </p>
+      <Link
+        href="/contact"
+        className="inline-flex items-center text-blue-400 hover:text-blue-300 text-sm transition-colors"
+      >
+        掲載のご希望はこちら
+        <ArrowRight className="w-4 h-4 ml-1" />
+      </Link>
     </div>
   );
 }
