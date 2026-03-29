@@ -1,20 +1,22 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { ShieldCheck, Scale, Gavel, HelpCircle, ArrowRight } from "lucide-react";
+import { ShieldCheck, Scale, Gavel, HelpCircle, ArrowRight, Loader2, CheckCircle, Download, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { CaptureForm } from "@/components/CaptureForm";
-import { ResultCard } from "@/components/ResultCard";
-import { ProcessState, LegalClaimType } from "@/types";
+import { ProcessState, LegalClaimType, JobStatus } from "@/types";
 
-interface CaptureResult {
-  pdfBase64: string;
-  docxBase64: string;
-  hash: string;
+interface JobResult {
+  pdfUrl: string;
+  docxUrl: string | null;
+  hashValue: string;
   capturedAt: string;
-  postText?: string;
+  evidenceNumber: string;
 }
+
+const POLL_INTERVAL = 2000; // 2秒
+const TIMEOUT_DURATION = 5 * 60 * 1000; // 5分
 
 function AppContent() {
   const searchParams = useSearchParams();
@@ -22,8 +24,12 @@ function AppContent() {
 
   const [state, setState] = useState<ProcessState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
-  const [result, setResult] = useState<CaptureResult | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobResult, setJobResult] = useState<JobResult | null>(null);
   const [prefilledUrl, setPrefilledUrl] = useState(initialUrl);
+
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     const urlParam = searchParams.get("url");
@@ -31,6 +37,71 @@ function AppContent() {
       setPrefilledUrl(urlParam);
     }
   }, [searchParams]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, []);
+
+  const stopPolling = useCallback(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  }, []);
+
+  const pollJobStatus = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/jobs/${id}`);
+      if (!res.ok) {
+        throw new Error("ステータスの取得に失敗しました");
+      }
+
+      const data = await res.json();
+      const status: JobStatus = data.status;
+
+      if (status === "done") {
+        stopPolling();
+        setState("done");
+        setJobResult({
+          pdfUrl: data.pdfUrl,
+          docxUrl: data.docxUrl,
+          hashValue: data.hashValue,
+          capturedAt: data.capturedAt,
+          evidenceNumber: data.evidenceNumber,
+        });
+      } else if (status === "error") {
+        stopPolling();
+        setState("error");
+        setErrorMsg(data.errorMessage || "保全処理中にエラーが発生しました。再度お試しください。");
+      } else if (status === "processing") {
+        setState("processing");
+      }
+
+      // Check for timeout
+      if (startTimeRef.current && Date.now() - startTimeRef.current > TIMEOUT_DURATION) {
+        stopPolling();
+        setState("error");
+        setErrorMsg("処理に時間がかかっています。しばらく経ってからページを再読み込みしてください。");
+      }
+    } catch (err) {
+      console.error("Polling error:", err);
+      // Don't stop polling on transient errors, but log them
+    }
+  }, [stopPolling]);
+
+  const startPolling = useCallback((id: string) => {
+    startTimeRef.current = Date.now();
+    pollIntervalRef.current = setInterval(() => {
+      pollJobStatus(id);
+    }, POLL_INTERVAL);
+    // Also poll immediately
+    pollJobStatus(id);
+  }, [pollJobStatus]);
 
   const handleCapture = async (data: {
     url: string;
@@ -40,61 +111,46 @@ function AppContent() {
   }) => {
     setState("capturing");
     setErrorMsg("");
-    setResult(null);
+    setJobResult(null);
+    setJobId(null);
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000);
-
-      const res = await fetch("/api/capture", {
+      const res = await fetch("/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-        signal: controller.signal,
+        body: JSON.stringify({
+          url: data.url,
+          evidenceNumber: data.evidenceNumber,
+          evidenceType: data.claimType,
+          customClaimText: data.customClaimText,
+        }),
       });
-
-      clearTimeout(timeoutId);
-      setState("processing");
 
       if (!res.ok) {
-        let errorMessage = "キャプチャに失敗しました";
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch {
-          // JSONパースに失敗した場合はデフォルトメッセージを使用
-        }
-        throw new Error(errorMessage);
+        const errorData = await res.json();
+        throw new Error(errorData.error || "ジョブの作成に失敗しました");
       }
 
-      setState("generating");
-      const responseData = await res.json();
+      const { jobId: newJobId } = await res.json();
+      setJobId(newJobId);
+      setState("processing");
 
-      setState("done");
-      setResult({
-        pdfBase64: responseData.pdfBase64,
-        docxBase64: responseData.docxBase64,
-        hash: responseData.hash,
-        capturedAt: responseData.capturedAt,
-        postText: responseData.postText,
-      });
+      // Start polling
+      startPolling(newJobId);
     } catch (err: unknown) {
       console.error(err);
-      let errorMessage = "予期せぬエラーが発生しました";
-
-      if (err instanceof Error) {
-        if (err.name === "AbortError") {
-          errorMessage = "処理がタイムアウトしました。しばらく待ってから再度お試しください。";
-        } else if (err.message === "Failed to fetch") {
-          errorMessage = "サーバーとの通信に失敗しました。処理中の可能性があります。しばらく待ってから再度お試しください。";
-        } else {
-          errorMessage = err.message;
-        }
-      }
-
+      const errorMessage = err instanceof Error ? err.message : "予期せぬエラーが発生しました";
       setErrorMsg(errorMessage);
       setState("error");
     }
+  };
+
+  const handleReset = () => {
+    stopPolling();
+    setState("idle");
+    setJobId(null);
+    setJobResult(null);
+    setErrorMsg("");
   };
 
   return (
@@ -127,35 +183,119 @@ function AppContent() {
 
         {/* Action Card */}
         <div className="w-full max-w-2xl bg-white/[0.03] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-xl shadow-2xl">
-          <CaptureForm onSubmit={handleCapture} state={state} initialUrl={prefilledUrl} />
+          {/* Idle State - Show Form */}
+          {state === "idle" && (
+            <>
+              <CaptureForm onSubmit={handleCapture} state={state} initialUrl={prefilledUrl} />
+              <div className="mt-4 text-center">
+                <Link
+                  href="/help"
+                  target="_blank"
+                  className="inline-flex items-center text-sm text-gray-400 hover:text-blue-400 transition-colors"
+                >
+                  <HelpCircle className="w-4 h-4 mr-1" />
+                  用語の意味・使い方がわからない方はこちら
+                </Link>
+              </div>
+            </>
+          )}
 
-          {/* Help Link */}
-          <div className="mt-4 text-center">
-            <Link
-              href="/help"
-              target="_blank"
-              className="inline-flex items-center text-sm text-gray-400 hover:text-blue-400 transition-colors"
-            >
-              <HelpCircle className="w-4 h-4 mr-1" />
-              用語の意味・使い方がわからない方はこちら
-            </Link>
-          </div>
-
-          {/* Error Display */}
-          {errorMsg && (
-            <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 font-inter text-center text-sm">
-              {errorMsg}
+          {/* Loading State */}
+          {(state === "capturing" || state === "processing" || state === "generating") && (
+            <div className="py-12 text-center">
+              <div className="inline-flex items-center justify-center p-4 bg-indigo-500/10 rounded-full mb-6">
+                <Loader2 className="w-12 h-12 text-indigo-400 animate-spin" />
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                証拠を保全しています...
+              </h3>
+              <p className="text-white/50 mb-2">しばらくお待ちください</p>
+              <p className="text-white/30 text-sm">通常30秒〜1分程度かかります</p>
+              {jobId && (
+                <p className="text-white/20 text-xs mt-4 font-mono">Job ID: {jobId}</p>
+              )}
             </div>
           )}
 
-          {/* Result Display */}
-          {state === "done" && result && (
-            <ResultCard
-              pdfBase64={result.pdfBase64}
-              docxBase64={result.docxBase64}
-              hash={result.hash}
-              capturedAt={result.capturedAt}
-            />
+          {/* Error State */}
+          {state === "error" && (
+            <div className="py-8 text-center">
+              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 mb-6">
+                {errorMsg}
+              </div>
+              <button
+                onClick={handleReset}
+                className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                もう一度試す
+              </button>
+            </div>
+          )}
+
+          {/* Success State */}
+          {state === "done" && jobResult && (
+            <div className="py-8">
+              <div className="text-center mb-8">
+                <div className="inline-flex items-center justify-center p-4 bg-green-500/10 rounded-full mb-4">
+                  <CheckCircle className="w-12 h-12 text-green-400" />
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-2">
+                  証拠の保全が完了しました
+                </h3>
+              </div>
+
+              {/* Result Details */}
+              <div className="space-y-4 mb-8">
+                <div className="p-4 bg-white/5 rounded-xl">
+                  <p className="text-white/50 text-sm mb-1">証拠番号</p>
+                  <p className="text-white font-medium">{jobResult.evidenceNumber}</p>
+                </div>
+                <div className="p-4 bg-white/5 rounded-xl">
+                  <p className="text-white/50 text-sm mb-1">取得日時</p>
+                  <p className="text-white font-medium">{jobResult.capturedAt}</p>
+                </div>
+                <div className="p-4 bg-white/5 rounded-xl">
+                  <p className="text-white/50 text-sm mb-1">SHA-256 ハッシュ値</p>
+                  <p className="text-white font-mono text-xs break-all">{jobResult.hashValue}</p>
+                </div>
+              </div>
+
+              {/* Download Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                <a
+                  href={jobResult.pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-4 px-6 rounded-xl transition-colors"
+                >
+                  <Download className="w-5 h-5" />
+                  PDFをダウンロード
+                </a>
+                {jobResult.docxUrl && (
+                  <a
+                    href={jobResult.docxUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-semibold py-4 px-6 rounded-xl transition-colors"
+                  >
+                    <Download className="w-5 h-5" />
+                    証拠説明書をダウンロード
+                  </a>
+                )}
+              </div>
+
+              {/* Reset Button */}
+              <div className="text-center">
+                <button
+                  onClick={handleReset}
+                  className="inline-flex items-center gap-2 text-white/50 hover:text-white transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  別の投稿を保全する
+                </button>
+              </div>
+            </div>
           )}
         </div>
 

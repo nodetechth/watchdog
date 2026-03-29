@@ -1,4 +1,27 @@
+/**
+ * @deprecated This API route is deprecated.
+ * Capture processing has been moved to Cloud Run.
+ * Use /api/jobs to create capture jobs instead.
+ *
+ * This file is kept for reference and backward compatibility.
+ * It will be removed in a future version.
+ */
+
 import { NextResponse } from "next/server";
+
+// Redirect to job-based API
+export async function POST() {
+  return NextResponse.json(
+    {
+      error: "このAPIは廃止されました。/api/jobs を使用してください。",
+      message: "Capture processing has been moved to Cloud Run. Use /api/jobs instead.",
+    },
+    { status: 410 } // Gone
+  );
+}
+
+/* Original implementation (preserved for reference):
+
 import Browserbase from "@browserbasehq/sdk";
 import { chromium, Browser, Page } from "playwright-core";
 import { Document, Paragraph, TextRun, Packer, AlignmentType, convertMillimetersToTwip, TabStopType, TabStopPosition } from "docx";
@@ -366,3 +389,5 @@ async function generateEvidenceDocx(data: {
 
   return Buffer.from(await Packer.toBuffer(doc));
 }
+
+End of original implementation */

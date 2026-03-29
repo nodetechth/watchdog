@@ -1,0 +1,29 @@
+{
+  "name": "watchdog-capture",
+  "version": "1.0.0",
+  "description": "WatchDog Capture Service for Cloud Run",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "@browserbasehq/sdk": "^2.5.0",
+    "@google-cloud/firestore": "^7.11.0",
+    "docx": "^9.5.0",
+    "express": "^4.21.2",
+    "firebase-admin": "^13.4.0",
+    "playwright-core": "^1.52.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.2",
+    "@types/node": "^22.15.17",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

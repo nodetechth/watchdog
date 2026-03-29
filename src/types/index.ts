@@ -80,3 +80,22 @@ export type ProcessState =
   | "generating"
   | "done"
   | "error";
+
+// ジョブステータス
+export type JobStatus = "pending" | "processing" | "done" | "error";
+
+// Firestoreジョブドキュメント
+export interface JobDocument {
+  jobId: string;
+  status: JobStatus;
+  url: string;
+  evidenceNumber: string;
+  evidenceType: LegalClaimType;
+  customClaimText?: string;
+  pdfUrl: string | null;
+  docxUrl: string | null;
+  hashValue: string | null;
+  capturedAt: Date | null;
+  createdAt: Date;
+  errorMessage: string | null;
+}
