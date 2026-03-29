@@ -10,6 +10,11 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
+    "@aws-sdk/client-dynamodb": "^3.1019.0",
+    "@aws-sdk/client-s3": "^3.1019.0",
+    "@aws-sdk/client-sqs": "^3.1019.0",
+    "@aws-sdk/lib-dynamodb": "^3.1019.0",
+    "@aws-sdk/s3-request-presigner": "^3.1019.0",
     "@browserbasehq/sdk": "^2.9.0",
     "@browserbasehq/stagehand": "^3.1.0",
     "date-fns": "^4.1.0",

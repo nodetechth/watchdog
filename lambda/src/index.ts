@@ -1,4 +1,10 @@
-import express, { Request, Response } from "express";
+import { SQSEvent, SQSHandler } from "aws-lambda";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import {
+  DynamoDBDocumentClient,
+  UpdateCommand,
+} from "@aws-sdk/lib-dynamodb";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import Browserbase from "@browserbasehq/sdk";
 import { chromium, Browser, Page } from "playwright-core";
 import {
@@ -10,36 +16,19 @@ import {
   convertMillimetersToTwip,
 } from "docx";
 import * as crypto from "crypto";
-import * as admin from "firebase-admin";
 
-/**
- * Firebase Admin SDK initialization using Application Default Credentials (ADC)
- *
- * On Cloud Run, ADC automatically uses the service account assigned to the Cloud Run service.
- * No service account key file is needed.
- *
- * Required environment variables:
- * - FIREBASE_STORAGE_BUCKET: Firebase Storage bucket name (e.g., "your-project.appspot.com")
- *
- * Cloud Run service account needs the following IAM roles:
- * - roles/datastore.user (for Firestore)
- * - roles/storage.objectAdmin (for Firebase Storage)
- */
-const app = admin.initializeApp({
-  credential: admin.credential.applicationDefault(),
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-});
+// AWS Clients
+const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION || "ap-northeast-1" });
+const docClient = DynamoDBDocumentClient.from(dynamoClient);
+const s3Client = new S3Client({ region: process.env.AWS_REGION || "ap-northeast-1" });
 
-const db = admin.firestore();
-const bucket = admin.storage().bucket();
+const DYNAMODB_TABLE = process.env.DYNAMODB_TABLE_NAME || "watchdog-jobs";
+const S3_BUCKET = process.env.S3_BUCKET_NAME || "watchdog-evidence-pdfs";
 
 // Legal claim types and templates
 type LegalClaimType = "defamation" | "insult" | "privacy" | "custom";
 
-const legalClaimTemplates: Record<
-  LegalClaimType,
-  { label: string; template: string }
-> = {
+const legalClaimTemplates: Record<LegalClaimType, { label: string; template: string }> = {
   defamation: {
     label: "名誉毀損",
     template: `被告が、{postedAt}頃、SNS「X（旧Twitter）」上において、原告に関し「{postSummary}」等と投稿し、不特定多数の者が閲覧可能な状態に置いたことにより、原告の社会的評価を低下させる事実を摘示し、もって原告の名誉を毀損した事実を立証する。`,
@@ -82,9 +71,7 @@ interface PostMetadata {
 async function extractPostMetadata(page: Page): Promise<PostMetadata> {
   try {
     const metadata = await page.evaluate(() => {
-      const tweetTextElement = document.querySelector(
-        '[data-testid="tweetText"]'
-      );
+      const tweetTextElement = document.querySelector('[data-testid="tweetText"]');
       const postText = tweetTextElement?.textContent || "";
 
       const userLinkElement = document.querySelector('a[href*="/status/"]');
@@ -164,11 +151,7 @@ async function generateEvidenceDocx(data: {
         children: [
           new Paragraph({
             children: [
-              new TextRun({
-                text: "証 拠 説 明 書（案）",
-                bold: true,
-                size: 32,
-              }),
+              new TextRun({ text: "証 拠 説 明 書（案）", bold: true, size: 32 }),
             ],
             alignment: AlignmentType.CENTER,
             spacing: { after: 400 },
@@ -197,11 +180,7 @@ async function generateEvidenceDocx(data: {
             spacing: { after: 100 },
           }),
           new Paragraph({
-            children: [
-              new TextRun({
-                text: "　　SNS投稿キャプチャ（X / 旧Twitter）",
-              }),
-            ],
+            children: [new TextRun({ text: "　　SNS投稿キャプチャ（X / 旧Twitter）" })],
             spacing: { after: 200 },
           }),
           new Paragraph({
@@ -209,11 +188,7 @@ async function generateEvidenceDocx(data: {
             spacing: { after: 100 },
           }),
           new Paragraph({
-            children: [
-              new TextRun({
-                text: `　　${data.metadata.posterId || "（相手方）"}`,
-              }),
-            ],
+            children: [new TextRun({ text: `　　${data.metadata.posterId || "（相手方）"}` })],
             spacing: { after: 200 },
           }),
           new Paragraph({
@@ -221,11 +196,7 @@ async function generateEvidenceDocx(data: {
             spacing: { after: 100 },
           }),
           new Paragraph({
-            children: [
-              new TextRun({
-                text: `　　${data.metadata.postedAt || "（投稿日時参照）"}`,
-              }),
-            ],
+            children: [new TextRun({ text: `　　${data.metadata.postedAt || "（投稿日時参照）"}` })],
             spacing: { after: 200 },
           }),
           new Paragraph({
@@ -245,15 +216,11 @@ async function generateEvidenceDocx(data: {
             spacing: { after: 200 },
           }),
           new Paragraph({
-            children: [
-              new TextRun({ text: "７．ハッシュ値（SHA-256）", bold: true }),
-            ],
+            children: [new TextRun({ text: "７．ハッシュ値（SHA-256）", bold: true })],
             spacing: { after: 100 },
           }),
           new Paragraph({
-            children: [
-              new TextRun({ text: `　　${data.hash}`, size: 18, font: "Courier New" }),
-            ],
+            children: [new TextRun({ text: `　　${data.hash}`, size: 18, font: "Courier New" })],
             spacing: { after: 400 },
           }),
           new Paragraph({
@@ -265,9 +232,7 @@ async function generateEvidenceDocx(data: {
             spacing: { after: 400 },
           }),
           new Paragraph({
-            children: [
-              new TextRun({ text: "【証拠の真正性について】", bold: true }),
-            ],
+            children: [new TextRun({ text: "【証拠の真正性について】", bold: true })],
             spacing: { before: 600, after: 200 },
           }),
           new Paragraph({
@@ -297,6 +262,34 @@ async function generateEvidenceDocx(data: {
   return Buffer.from(await Packer.toBuffer(doc));
 }
 
+// Update job status in DynamoDB
+async function updateJobStatus(
+  jobId: string,
+  updates: Record<string, unknown>
+): Promise<void> {
+  const updateExpressions: string[] = [];
+  const expressionAttributeNames: Record<string, string> = {};
+  const expressionAttributeValues: Record<string, unknown> = {};
+
+  Object.entries(updates).forEach(([key, value], index) => {
+    const attrName = `#attr${index}`;
+    const attrValue = `:val${index}`;
+    updateExpressions.push(`${attrName} = ${attrValue}`);
+    expressionAttributeNames[attrName] = key;
+    expressionAttributeValues[attrValue] = value;
+  });
+
+  await docClient.send(
+    new UpdateCommand({
+      TableName: DYNAMODB_TABLE,
+      Key: { jobId },
+      UpdateExpression: `SET ${updateExpressions.join(", ")}`,
+      ExpressionAttributeNames: expressionAttributeNames,
+      ExpressionAttributeValues: expressionAttributeValues,
+    })
+  );
+}
+
 // Main capture function
 async function capturePost(
   jobId: string,
@@ -309,9 +302,7 @@ async function capturePost(
 
   try {
     // Update status to processing
-    await db.collection("jobs").doc(jobId).update({
-      status: "processing",
-    });
+    await updateJobStatus(jobId, { status: "processing" });
 
     // Browserbase setup
     const browserbaseApiKey = process.env.BROWSERBASE_API_KEY;
@@ -348,7 +339,8 @@ async function capturePost(
     const displayEvidenceNumber = evidenceNumber?.trim() || "甲第1号証";
 
     // Capture timestamp
-    const capturedAt = new Date().toLocaleString("ja-JP", {
+    const capturedAt = new Date().toISOString();
+    const capturedAtDisplay = new Date().toLocaleString("ja-JP", {
       timeZone: "Asia/Tokyo",
       year: "numeric",
       month: "2-digit",
@@ -371,7 +363,7 @@ async function capturePost(
       `,
       footerTemplate: `
         <div style="width: 100%; font-size: 9px; padding: 5px 20px; display: flex; justify-content: space-between; align-items: center; font-family: 'MS Gothic', 'Hiragino Kaku Gothic ProN', sans-serif; color: #666;">
-          <span>取得日時: ${capturedAt}</span>
+          <span>取得日時: ${capturedAtDisplay}</span>
           <span><span class="pageNumber"></span> / <span class="totalPages"></span></span>
         </div>
       `,
@@ -391,53 +383,53 @@ async function capturePost(
       evidenceNumber: displayEvidenceNumber,
       url,
       hash: hashValue,
-      capturedAt,
+      capturedAt: capturedAtDisplay,
       claimType: evidenceType,
       customClaimText,
       metadata,
     });
 
-    // Upload PDF to Firebase Storage
-    const pdfFileName = `captures/${jobId}/evidence.pdf`;
-    const pdfFile = bucket.file(pdfFileName);
-    await pdfFile.save(pdfBuffer, {
-      metadata: {
-        contentType: "application/pdf",
-      },
-    });
-    await pdfFile.makePublic();
-    const pdfUrl = `https://storage.googleapis.com/${bucket.name}/${pdfFileName}`;
+    // Upload PDF to S3
+    const pdfKey = `captures/${jobId}/evidence.pdf`;
+    await s3Client.send(
+      new PutObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: pdfKey,
+        Body: pdfBuffer,
+        ContentType: "application/pdf",
+      })
+    );
 
-    // Upload DOCX to Firebase Storage
-    const docxFileName = `captures/${jobId}/evidence_explanation.docx`;
-    const docxFile = bucket.file(docxFileName);
-    await docxFile.save(docxBuffer, {
-      metadata: {
-        contentType:
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      },
-    });
-    await docxFile.makePublic();
-    const docxUrl = `https://storage.googleapis.com/${bucket.name}/${docxFileName}`;
+    // Upload DOCX to S3
+    const docxKey = `captures/${jobId}/evidence_explanation.docx`;
+    await s3Client.send(
+      new PutObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: docxKey,
+        Body: docxBuffer,
+        ContentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      })
+    );
 
     // Update job as done
-    await db.collection("jobs").doc(jobId).update({
+    await updateJobStatus(jobId, {
       status: "done",
-      pdfUrl,
-      docxUrl,
+      pdfKey,
+      docxKey,
       hashValue,
-      capturedAt: admin.firestore.Timestamp.fromDate(new Date()),
+      capturedAt,
+      evidenceNumber: displayEvidenceNumber,
     });
 
     console.log(`Job ${jobId} completed successfully`);
   } catch (error: unknown) {
     console.error(`Job ${jobId} failed:`, error);
-    const errorMessage =
-      error instanceof Error ? error.message : "キャプチャに失敗しました";
-    await db.collection("jobs").doc(jobId).update({
+    const errorMessage = error instanceof Error ? error.message : "キャプチャに失敗しました";
+    await updateJobStatus(jobId, {
       status: "error",
       errorMessage,
     });
+    throw error;
   } finally {
     if (browser) {
       await browser.close();
@@ -445,123 +437,31 @@ async function capturePost(
   }
 }
 
-// Express server
-const server = express();
-server.use(express.json());
+// Lambda handler for SQS trigger
+export const handler: SQSHandler = async (event: SQSEvent) => {
+  console.log("Received SQS event:", JSON.stringify(event, null, 2));
 
-// Health check endpoint
-server.get("/", (req: Request, res: Response) => {
-  res.status(200).send("WatchDog Capture Service is running");
-});
+  for (const record of event.Records) {
+    try {
+      const body = JSON.parse(record.body);
+      const { jobId, url, evidenceNumber, evidenceType, customClaimText } = body;
 
-// Create job endpoint (called from Vercel)
-server.post("/jobs", async (req: Request, res: Response) => {
-  try {
-    const { url, evidenceNumber, evidenceType, customClaimText } = req.body;
+      if (!jobId || !url) {
+        console.error("Missing required fields:", body);
+        continue;
+      }
 
-    if (!url) {
-      res.status(400).json({ error: "url is required" });
-      return;
+      await capturePost(
+        jobId,
+        url,
+        evidenceNumber || "甲第1号証",
+        evidenceType || "defamation",
+        customClaimText
+      );
+    } catch (error) {
+      console.error("Error processing SQS message:", error);
+      // Re-throw to let SQS handle retry
+      throw error;
     }
-
-    // Generate job ID
-    const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    // Create job document in Firestore
-    const jobData = {
-      jobId,
-      status: "pending" as const,
-      url,
-      evidenceNumber: evidenceNumber || "甲第1号証",
-      evidenceType: evidenceType || "defamation",
-      customClaimText: customClaimText || null,
-      pdfUrl: null,
-      docxUrl: null,
-      hashValue: null,
-      capturedAt: null,
-      createdAt: admin.firestore.Timestamp.now(),
-      errorMessage: null,
-    };
-
-    await db.collection("jobs").doc(jobId).set(jobData);
-
-    // Start capture process asynchronously (don't await)
-    capturePost(
-      jobId,
-      url,
-      evidenceNumber || "甲第1号証",
-      evidenceType || "defamation",
-      customClaimText
-    ).catch((err) => {
-      console.error("Capture error:", err);
-    });
-
-    res.status(202).json({ jobId, message: "Capture started" });
-  } catch (error) {
-    console.error("Job creation error:", error);
-    res.status(500).json({ error: "ジョブの作成に失敗しました" });
   }
-});
-
-// Get job status endpoint (called from Vercel for polling)
-server.get("/jobs/:jobId", async (req: Request, res: Response) => {
-  try {
-    const jobId = req.params.jobId as string;
-
-    if (!jobId) {
-      res.status(400).json({ error: "jobId is required" });
-      return;
-    }
-
-    const jobDoc = await db.collection("jobs").doc(jobId).get();
-
-    if (!jobDoc.exists) {
-      res.status(404).json({ error: "Job not found" });
-      return;
-    }
-
-    const jobData = jobDoc.data();
-
-    res.status(200).json({
-      jobId: jobData?.jobId,
-      status: jobData?.status,
-      pdfUrl: jobData?.pdfUrl,
-      docxUrl: jobData?.docxUrl,
-      hashValue: jobData?.hashValue,
-      capturedAt: jobData?.capturedAt?.toDate?.()?.toISOString() || null,
-      evidenceNumber: jobData?.evidenceNumber,
-      errorMessage: jobData?.errorMessage,
-    });
-  } catch (error) {
-    console.error("Job status error:", error);
-    res.status(500).json({ error: "ステータスの取得に失敗しました" });
-  }
-});
-
-// Legacy capture endpoint (for backward compatibility)
-server.post("/", async (req: Request, res: Response) => {
-  const { jobId, url, evidenceNumber, evidenceType, customClaimText } = req.body;
-
-  if (!jobId || !url) {
-    res.status(400).json({ error: "jobId and url are required" });
-    return;
-  }
-
-  // Start capture process asynchronously
-  capturePost(
-    jobId,
-    url,
-    evidenceNumber || "甲第1号証",
-    evidenceType || "defamation",
-    customClaimText
-  ).catch((err) => {
-    console.error("Capture error:", err);
-  });
-
-  res.status(202).json({ message: "Capture started", jobId });
-});
-
-const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => {
-  console.log(`WatchDog Capture Service listening on port ${PORT}`);
-});
+};

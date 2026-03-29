@@ -1,16 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
+import { v4 as uuidv4 } from "uuid";
 import { LegalClaimType } from "@/types";
 
 /**
  * Job Registration API
  *
- * Proxies job creation to Cloud Run, which handles Firestore operations.
- * This avoids needing Firebase Admin credentials on Vercel.
+ * Creates a new capture job in DynamoDB and sends a message to SQS.
  *
- * Required environment variable:
- * - CLOUD_RUN_URL: URL of the Cloud Run capture service
- *   Set in .env.local and Vercel dashboard.
+ * Required environment variables:
+ * - AWS_REGION
+ * - AWS_ACCESS_KEY_ID
+ * - AWS_SECRET_ACCESS_KEY
+ * - SQS_QUEUE_URL
+ * - DYNAMODB_TABLE_NAME
  */
+
+const dynamoClient = new DynamoDBClient({
+  region: process.env.AWS_REGION || "ap-northeast-1",
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
+  },
+});
+const docClient = DynamoDBDocumentClient.from(dynamoClient);
+
+const sqsClient = new SQSClient({
+  region: process.env.AWS_REGION || "ap-northeast-1",
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
+  },
+});
+
+const DYNAMODB_TABLE = process.env.DYNAMODB_TABLE_NAME || "watchdog-jobs";
+const SQS_QUEUE_URL = process.env.SQS_QUEUE_URL || "";
 
 interface JobRequest {
   url: string;
@@ -32,33 +58,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const cloudRunUrl = process.env.CLOUD_RUN_URL;
-    if (!cloudRunUrl) {
+    // Check configuration
+    if (!SQS_QUEUE_URL) {
       return NextResponse.json(
-        { error: "キャプチャサービスが設定されていません" },
+        { error: "SQS キューが設定されていません" },
         { status: 500 }
       );
     }
 
-    // Send request to Cloud Run to create and process the job
-    const response = await fetch(`${cloudRunUrl}/jobs`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url,
-        evidenceNumber: evidenceNumber || "甲第1号証",
-        evidenceType: evidenceType || "defamation",
-        customClaimText: customClaimText || null,
-      }),
-    });
+    // Generate job ID
+    const jobId = uuidv4();
+    const createdAt = new Date().toISOString();
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || "ジョブの作成に失敗しました");
-    }
+    // Create job in DynamoDB
+    await docClient.send(
+      new PutCommand({
+        TableName: DYNAMODB_TABLE,
+        Item: {
+          jobId,
+          status: "pending",
+          url,
+          evidenceNumber: evidenceNumber || "甲第1号証",
+          evidenceType: evidenceType || "defamation",
+          customClaimText: customClaimText || null,
+          pdfKey: null,
+          docxKey: null,
+          hashValue: null,
+          capturedAt: null,
+          createdAt,
+          errorMessage: null,
+        },
+      })
+    );
 
-    const data = await response.json();
-    return NextResponse.json({ jobId: data.jobId });
+    // Send message to SQS
+    await sqsClient.send(
+      new SendMessageCommand({
+        QueueUrl: SQS_QUEUE_URL,
+        MessageBody: JSON.stringify({
+          jobId,
+          url,
+          evidenceNumber: evidenceNumber || "甲第1号証",
+          evidenceType: evidenceType || "defamation",
+          customClaimText: customClaimText || null,
+        }),
+      })
+    );
+
+    return NextResponse.json({ jobId });
   } catch (error) {
     console.error("Job creation error:", error);
     const message = error instanceof Error ? error.message : "ジョブの作成に失敗しました";
