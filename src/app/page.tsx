@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ShieldCheck, AlertTriangle, Clock, FileText, Hash, FileCheck, ArrowRight } from "lucide-react";
+import { ShieldCheck, AlertTriangle, Clock, FileText, Hash, FileCheck, ArrowRight, Pencil, User, FileWarning, Check, X, Minus } from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -79,8 +79,92 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* How It Works Section */}
+      {/* Why Free Services Are Not Enough Section */}
       <section className="py-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              無料のURL保存・魚拓サービス単体では
+              <br />
+              <span className="text-red-400">証拠能力が十分と評価されない場合があります</span>
+            </h2>
+            <p className="text-gray-400 text-lg max-w-3xl mx-auto">
+              手軽に使えるURL保存サービスは多いですが、
+              法的証拠としての要件を満たすには不十分な場合があります。
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 mb-12">
+            <ProblemCard
+              icon={<Pencil className="w-6 h-6" />}
+              title="保存データを後から書き換えられる"
+              description="HTML形式で保存したファイルはテキストエディタで内容を自由に編集できます。相手方から『捏造では』と指摘された場合、改ざんされていないことを証明する手段がありません。"
+            />
+            <ProblemCard
+              icon={<User className="w-6 h-6" />}
+              title="誰が・いつ・どうやって取得したか証明できない"
+              description="第三者サービスのアーカイブは、あなた自身がいつ・どの状態で閲覧したかを証明できません。裁判所から『取得経緯が不明』と判断されるリスクがあります。"
+            />
+            <ProblemCard
+              icon={<FileWarning className="w-6 h-6" />}
+              title="裁判所が重視する情報が写り込まない"
+              description="証拠として有効なキャプチャには、投稿者のID・正確な投稿日時（絶対時間）・URLが同一画面に写り込んでいる必要があります。一般的なURL保存・魚拓ではこれらが欠落・改ざんされやすい形式です。"
+            />
+          </div>
+
+          {/* Comparison Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[600px] border-collapse">
+              <thead>
+                <tr className="bg-gray-800">
+                  <th className="text-left py-4 px-4 font-semibold border-b border-gray-700">項目</th>
+                  <th className="text-center py-4 px-4 font-semibold border-b border-gray-700">スクショ</th>
+                  <th className="text-center py-4 px-4 font-semibold border-b border-gray-700">無料URL保存・魚拓</th>
+                  <th className="text-center py-4 px-4 font-semibold border-b border-gray-700 text-blue-400">WatchDog</th>
+                </tr>
+              </thead>
+              <tbody>
+                <ComparisonRow
+                  label="投稿者ID・URLが写り込む"
+                  screenshot="no"
+                  freeService="partial"
+                  watchdog="yes"
+                />
+                <ComparisonRow
+                  label="正確な取得日時の証明"
+                  screenshot="no"
+                  freeService="no"
+                  watchdog="yes"
+                />
+                <ComparisonRow
+                  label="改ざん検知（ハッシュ値）"
+                  screenshot="no"
+                  freeService="no"
+                  watchdog="yes"
+                />
+                <ComparisonRow
+                  label="証拠説明書の下書き生成"
+                  screenshot="no"
+                  freeService="no"
+                  watchdog="yes"
+                />
+                <ComparisonRow
+                  label="法的書式（PDF/A）対応"
+                  screenshot="no"
+                  freeService="no"
+                  watchdog="yes"
+                />
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-gray-500 mt-4 text-center">
+            ※ 証拠の有効性は事案・裁判所の判断によります。重要な案件は弁護士にご相談ください。
+          </p>
+        </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section className="py-20 bg-gray-900/50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold">
@@ -261,5 +345,37 @@ function FeatureCard({
       <h3 className="text-lg font-semibold mb-2">{title}</h3>
       <p className="text-gray-400 text-sm leading-relaxed">{description}</p>
     </div>
+  );
+}
+
+function ComparisonRow({
+  label,
+  screenshot,
+  freeService,
+  watchdog,
+}: {
+  label: string;
+  screenshot: "yes" | "no" | "partial";
+  freeService: "yes" | "no" | "partial";
+  watchdog: "yes" | "no" | "partial";
+}) {
+  const renderStatus = (status: "yes" | "no" | "partial") => {
+    switch (status) {
+      case "yes":
+        return <Check className="w-5 h-5 text-blue-400 mx-auto" />;
+      case "no":
+        return <X className="w-5 h-5 text-red-400 mx-auto" />;
+      case "partial":
+        return <Minus className="w-5 h-5 text-yellow-400 mx-auto" />;
+    }
+  };
+
+  return (
+    <tr className="border-b border-gray-700/50 hover:bg-gray-800/30 transition-colors">
+      <td className="py-4 px-4 text-gray-300">{label}</td>
+      <td className="py-4 px-4 text-center">{renderStatus(screenshot)}</td>
+      <td className="py-4 px-4 text-center">{renderStatus(freeService)}</td>
+      <td className="py-4 px-4 text-center">{renderStatus(watchdog)}</td>
+    </tr>
   );
 }
