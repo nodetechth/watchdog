@@ -506,7 +506,7 @@ server.post("/jobs", async (req: Request, res: Response) => {
 // Get job status endpoint (called from Vercel for polling)
 server.get("/jobs/:jobId", async (req: Request, res: Response) => {
   try {
-    const { jobId } = req.params;
+    const jobId = req.params.jobId as string;
 
     if (!jobId) {
       res.status(400).json({ error: "jobId is required" });
