@@ -48,14 +48,14 @@ export function CaptureForm({ onSubmit, state, initialUrl = "" }: CaptureFormPro
       {/* URL入力 */}
       <div className="relative">
         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-          <Link2 className="h-5 w-5 text-white/30" />
+          <Link2 className="h-5 w-5 text-gray-400" />
         </div>
         <input
           type="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://x.com/username/status/..."
-          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-inter text-lg"
+          className="w-full bg-white border border-gray-300 rounded-2xl py-4 pl-12 pr-4 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all font-inter text-lg"
           required
           disabled={isProcessing}
         />
@@ -65,7 +65,7 @@ export function CaptureForm({ onSubmit, state, initialUrl = "" }: CaptureFormPro
       <button
         type="button"
         onClick={() => setShowAdvanced(!showAdvanced)}
-        className="flex items-center justify-center text-sm text-white/50 hover:text-white/70 transition-colors py-2"
+        className="flex items-center justify-center text-sm text-gray-500 hover:text-gray-700 transition-colors py-2"
       >
         {showAdvanced ? (
           <>
@@ -82,10 +82,10 @@ export function CaptureForm({ onSubmit, state, initialUrl = "" }: CaptureFormPro
 
       {/* 詳細設定 */}
       {showAdvanced && (
-        <div className="space-y-6 p-4 bg-white/[0.02] rounded-2xl border border-white/5">
+        <div className="space-y-6 p-4 bg-gray-50 rounded-2xl border border-gray-200">
           {/* 証拠番号 */}
           <div>
-            <label className="block text-white/70 text-sm font-medium mb-2">
+            <label className="block text-gray-700 text-sm font-medium mb-2">
               証拠番号
             </label>
             <input
@@ -93,7 +93,7 @@ export function CaptureForm({ onSubmit, state, initialUrl = "" }: CaptureFormPro
               value={evidenceNumber}
               onChange={(e) => setEvidenceNumber(e.target.value)}
               placeholder="甲第1号証"
-              className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-inter"
+              className="w-full bg-white border border-gray-300 rounded-xl py-3 px-4 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all font-inter"
               disabled={isProcessing}
             />
           </div>
@@ -112,7 +112,7 @@ export function CaptureForm({ onSubmit, state, initialUrl = "" }: CaptureFormPro
       <button
         type="submit"
         disabled={isProcessing || !url}
-        className="group relative flex items-center justify-center w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-lg py-4 rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+        className="group relative flex items-center justify-center w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold text-lg py-4 rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
       >
         <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
         {!isProcessing ? (

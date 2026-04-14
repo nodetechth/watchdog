@@ -28,7 +28,7 @@ export function LegalTypeSelector({
 
   return (
     <div className="space-y-4">
-      <label className="block text-white/70 text-sm font-medium mb-2">
+      <label className="block text-gray-700 text-sm font-medium mb-2">
         立証趣旨のタイプを選択（案）
       </label>
 
@@ -46,26 +46,26 @@ export function LegalTypeSelector({
                 flex items-start p-4 rounded-xl border text-left transition-all
                 ${
                   isSelected
-                    ? "bg-indigo-500/20 border-indigo-500/50 ring-1 ring-indigo-500/30"
-                    : "bg-white/5 border-white/10 hover:bg-white/10"
+                    ? "bg-blue-50 border-blue-300 ring-1 ring-blue-300"
+                    : "bg-white border-gray-200 hover:bg-gray-50"
                 }
               `}
             >
               <div
                 className={`
                   flex-shrink-0 p-2 rounded-lg mr-3
-                  ${isSelected ? "bg-indigo-500/30 text-indigo-400" : "bg-white/10 text-white/50"}
+                  ${isSelected ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-500"}
                 `}
               >
                 {icons[type]}
               </div>
               <div>
                 <span
-                  className={`font-medium ${isSelected ? "text-white" : "text-white/80"}`}
+                  className={`font-medium ${isSelected ? "text-gray-900" : "text-gray-700"}`}
                 >
                   {template.label}
                 </span>
-                <p className="text-xs text-white/50 mt-1">{template.description}</p>
+                <p className="text-xs text-gray-500 mt-1">{template.description}</p>
               </div>
             </button>
           );
@@ -74,19 +74,19 @@ export function LegalTypeSelector({
 
       {selected === "custom" && (
         <div className="mt-4">
-          <label className="block text-white/70 text-sm font-medium mb-2">
+          <label className="block text-gray-700 text-sm font-medium mb-2">
             立証趣旨（自由記述）
           </label>
           <textarea
             value={customText}
             onChange={(e) => onCustomTextChange(e.target.value)}
             placeholder="被告が本件SNS上において..."
-            className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-inter text-sm min-h-[120px] resize-y"
+            className="w-full bg-white border border-gray-300 rounded-xl py-3 px-4 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all font-inter text-sm min-h-[120px] resize-y"
           />
         </div>
       )}
 
-      <p className="text-xs text-white/40 mt-2">
+      <p className="text-xs text-gray-500 mt-2">
         ※ 立証趣旨はAIが文脈を補完したサンプルです。最終確定はご自身で行ってください。
       </p>
     </div>

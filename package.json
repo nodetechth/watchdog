@@ -8,6 +8,11 @@
     "start": "next start",
     "lint": "eslint"
   },
+  "overrides": {
+    "next-auth": {
+      "next": "$next"
+    }
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
     "@aws-sdk/client-dynamodb": "^3.1019.0",
@@ -17,16 +22,23 @@
     "@aws-sdk/s3-request-presigner": "^3.1019.0",
     "@browserbasehq/sdk": "^2.9.0",
     "@browserbasehq/stagehand": "^3.1.0",
+    "@stripe/stripe-js": "^9.1.0",
+    "@vercel/blob": "^2.3.2",
+    "@vercel/functions": "^3.4.3",
+    "@vercel/kv": "^3.0.0",
     "date-fns": "^4.1.0",
     "docx": "^9.6.1",
+    "ethers": "^6.16.0",
     "firebase": "^12.10.0",
     "firebase-admin": "^13.7.0",
     "lucide-react": "^0.577.0",
     "next": "16.1.6",
+    "next-auth": "^5.0.0-beta.25",
     "nodemailer": "^8.0.4",
     "playwright": "^1.58.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "stripe": "^22.0.1",
     "uuid": "^13.0.0"
   },
   "devDependencies": {

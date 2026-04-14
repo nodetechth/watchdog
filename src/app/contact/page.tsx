@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Mail, CheckCircle } from "lucide-react";
+import { Header } from "@/components/Header";
 
 type InquiryType = "advertising" | "pricing" | "other";
 
@@ -74,7 +75,9 @@ export default function ContactPage() {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center px-4">
+      <div className="min-h-screen bg-gray-950 text-white">
+        <Header />
+        <div className="flex items-center justify-center px-4 py-20">
         <div className="max-w-md w-full text-center">
           <div className="inline-flex items-center justify-center p-4 bg-green-500/10 rounded-full mb-6">
             <CheckCircle className="w-12 h-12 text-green-400" />
@@ -89,12 +92,14 @@ export default function ContactPage() {
             ツールに戻る
           </Link>
         </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
+      <Header />
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12 md:py-16">
         {/* Page Title */}
         <div className="text-center mb-12">

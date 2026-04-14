@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { ArrowLeft, ExternalLink, HelpCircle, BookOpen, MessageCircleQuestion, Phone } from "lucide-react";
+import { ExternalLink, HelpCircle, BookOpen, MessageCircleQuestion, Phone, ArrowLeft } from "lucide-react";
 import { FaqAccordion } from "@/components/FaqAccordion";
+import { Header } from "@/components/Header";
 
 export default function HelpPage() {
   return (
     <div className="min-h-screen bg-gray-950 text-white">
+      <Header />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 md:py-16">
         {/* Page Title */}
         <div className="text-center mb-16">

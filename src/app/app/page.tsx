@@ -2,17 +2,25 @@
 
 import { useState, useEffect, Suspense, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { ShieldCheck, Scale, Gavel, HelpCircle, ArrowRight, Loader2, CheckCircle, Download, RefreshCw } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { Scale, Gavel, HelpCircle, ArrowRight, Loader2, CheckCircle, Download, RefreshCw, Link as LinkIcon, Clock, AlertTriangle, Ticket, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { CaptureForm } from "@/components/CaptureForm";
+import { Header } from "@/components/Header";
 import { ProcessState, LegalClaimType, JobStatus } from "@/types";
+import { UserPlan } from "@/lib/infra/types";
 
 interface JobResult {
-  pdfUrl: string;
+  pdfUrl: string | null;
   docxUrl: string | null;
   hashValue: string;
   capturedAt: string;
   evidenceNumber: string;
+  txHash?: string;
+  explorerUrl?: string;
+  userPlan: UserPlan;
+  expiresAt: string;
+  isPaid: boolean;
 }
 
 const POLL_INTERVAL = 2000; // 2秒
@@ -21,6 +29,7 @@ const TIMEOUT_DURATION = 5 * 60 * 1000; // 5分
 function AppContent() {
   const searchParams = useSearchParams();
   const initialUrl = searchParams.get("url") || "";
+  const { data: session } = useSession();
 
   const [state, setState] = useState<ProcessState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -73,6 +82,11 @@ function AppContent() {
           hashValue: data.hashValue,
           capturedAt: data.capturedAt,
           evidenceNumber: data.evidenceNumber,
+          txHash: data.txHash,
+          explorerUrl: data.explorerUrl,
+          userPlan: data.userPlan || "guest",
+          expiresAt: data.expiresAt,
+          isPaid: data.isPaid || false,
         });
       } else if (status === "error") {
         stopPolling();
@@ -153,28 +167,39 @@ function AppContent() {
     setErrorMsg("");
   };
 
-  return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden font-outfit">
-      {/* Background Gradients */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/20 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-rose-600/20 blur-[120px] rounded-full pointer-events-none" />
+  const getExpirationText = (userPlan: UserPlan) => {
+    switch (userPlan) {
+      case "guest":
+        return "24時間後";
+      case "free":
+        return "7日後";
+      case "paid":
+        return "5年間保存";
+      default:
+        return "24時間後";
+    }
+  };
 
-      <main className="z-10 flex flex-col items-center w-full max-w-4xl px-4 sm:px-6 py-12">
+  return (
+    <div className="relative min-h-screen flex flex-col bg-white font-outfit">
+      <Header />
+
+      <main className="flex-1 flex flex-col items-center w-full max-w-4xl mx-auto px-4 sm:px-6 py-12">
         {/* Header Section */}
         <div className="text-center mb-12 space-y-4">
-          <div className="inline-flex items-center justify-center p-3 bg-white/5 rounded-2xl border border-white/10 mb-4 backdrop-blur-md shadow-xl">
-            <ShieldCheck className="w-10 h-10 text-indigo-400" />
-            <h1 className="ml-3 text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
+          <div className="inline-flex items-center justify-center p-3 bg-blue-50 rounded-2xl border border-blue-100 mb-4">
+            <ShieldCheck className="w-10 h-10 text-blue-600" />
+            <h1 className="ml-3 text-3xl font-bold tracking-tight text-blue-700">
               WatchDog
             </h1>
           </div>
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-white mb-4">
+          <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-gray-900 mb-4">
             法廷基準の{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-rose-400">
+            <span className="text-blue-700">
               SNSエビデンス保全
             </span>
           </h2>
-          <p className="text-lg text-white/50 max-w-2xl mx-auto font-inter">
+          <p className="text-lg text-gray-500 max-w-2xl mx-auto font-inter">
             裁判所が重視する「URL・投稿日時・投稿者ID」を完全にキャプチャし、
             <br className="hidden md:block" />
             証拠説明書のサンプルを自動生成します。
@@ -182,16 +207,71 @@ function AppContent() {
         </div>
 
         {/* Action Card */}
-        <div className="w-full max-w-2xl bg-white/[0.03] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-xl shadow-2xl">
+        <div className="w-full max-w-2xl bg-white border border-gray-200 rounded-3xl p-6 md:p-8 shadow-sm">
           {/* Idle State - Show Form */}
           {state === "idle" && (
             <>
+              {/* Ticket Status for logged in users */}
+              {session && (
+                <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  {(() => {
+                    const user = session.user as {
+                      tickets?: number;
+                      ticketsExpiresAt?: string;
+                    };
+                    const tickets = user.tickets || 0;
+                    const expiresAt = user.ticketsExpiresAt;
+                    const isExpired = expiresAt && new Date(expiresAt) < new Date();
+                    const hasValidTickets = tickets > 0 && !isExpired;
+
+                    if (hasValidTickets) {
+                      return (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Ticket className="w-5 h-5 text-blue-600" />
+                            <span className="text-sm font-medium text-gray-900">
+                              残りチケット: {tickets}枚
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              （5年間保存で証拠保全）
+                            </span>
+                          </div>
+                          <Link
+                            href="/pricing"
+                            className="text-xs text-blue-600 hover:text-blue-800"
+                          >
+                            追加購入
+                          </Link>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="w-5 h-5 text-amber-500" />
+                          <span className="text-sm text-gray-700">
+                            チケットがありません（7日間保存になります）
+                          </span>
+                        </div>
+                        <Link
+                          href="/pricing"
+                          className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          チケットを購入
+                        </Link>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
               <CaptureForm onSubmit={handleCapture} state={state} initialUrl={prefilledUrl} />
               <div className="mt-4 text-center">
                 <Link
                   href="/help"
                   target="_blank"
-                  className="inline-flex items-center text-sm text-gray-400 hover:text-blue-400 transition-colors"
+                  className="inline-flex items-center text-sm text-gray-400 hover:text-blue-600 transition-colors"
                 >
                   <HelpCircle className="w-4 h-4 mr-1" />
                   用語の意味・使い方がわからない方はこちら
@@ -203,16 +283,16 @@ function AppContent() {
           {/* Loading State */}
           {(state === "capturing" || state === "processing" || state === "generating") && (
             <div className="py-12 text-center">
-              <div className="inline-flex items-center justify-center p-4 bg-indigo-500/10 rounded-full mb-6">
-                <Loader2 className="w-12 h-12 text-indigo-400 animate-spin" />
+              <div className="inline-flex items-center justify-center p-4 bg-blue-50 rounded-full mb-6">
+                <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-2">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
                 証拠を保全しています...
               </h3>
-              <p className="text-white/50 mb-2">しばらくお待ちください</p>
-              <p className="text-white/30 text-sm">通常30秒〜1分程度かかります</p>
+              <p className="text-gray-500 mb-2">しばらくお待ちください</p>
+              <p className="text-gray-400 text-sm">通常30秒〜1分程度かかります</p>
               {jobId && (
-                <p className="text-white/20 text-xs mt-4 font-mono">Job ID: {jobId}</p>
+                <p className="text-gray-300 text-xs mt-4 font-mono">Job ID: {jobId}</p>
               )}
             </div>
           )}
@@ -220,12 +300,12 @@ function AppContent() {
           {/* Error State */}
           {state === "error" && (
             <div className="py-8 text-center">
-              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 mb-6">
+              <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 mb-6">
                 {errorMsg}
               </div>
               <button
                 onClick={handleReset}
-                className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl transition-colors"
+                className="inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
                 もう一度試す
@@ -236,60 +316,120 @@ function AppContent() {
           {/* Success State */}
           {state === "done" && jobResult && (
             <div className="py-8">
-              <div className="text-center mb-8">
-                <div className="inline-flex items-center justify-center p-4 bg-green-500/10 rounded-full mb-4">
-                  <CheckCircle className="w-12 h-12 text-green-400" />
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center justify-center p-4 bg-green-50 rounded-full mb-4">
+                  <CheckCircle className="w-12 h-12 text-green-600" />
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-2">
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
                   証拠の保全が完了しました
                 </h3>
               </div>
 
-              {/* Result Details */}
-              <div className="space-y-4 mb-8">
-                <div className="p-4 bg-white/5 rounded-xl">
-                  <p className="text-white/50 text-sm mb-1">証拠番号</p>
-                  <p className="text-white font-medium">{jobResult.evidenceNumber}</p>
-                </div>
-                <div className="p-4 bg-white/5 rounded-xl">
-                  <p className="text-white/50 text-sm mb-1">取得日時</p>
-                  <p className="text-white font-medium">{jobResult.capturedAt}</p>
-                </div>
-                <div className="p-4 bg-white/5 rounded-xl">
-                  <p className="text-white/50 text-sm mb-1">SHA-256 ハッシュ値</p>
-                  <p className="text-white font-mono text-xs break-all">{jobResult.hashValue}</p>
+              {/* Expiration Warning */}
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+                <Clock className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    このデータは{getExpirationText(jobResult.userPlan)}に削除されます
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    保存期限: {new Date(jobResult.expiresAt).toLocaleString("ja-JP")}
+                  </p>
                 </div>
               </div>
 
-              {/* Download Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                <a
-                  href={jobResult.pdfUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-4 px-6 rounded-xl transition-colors"
-                >
-                  <Download className="w-5 h-5" />
-                  PDFをダウンロード
-                </a>
-                {jobResult.docxUrl && (
-                  <a
-                    href={jobResult.docxUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-semibold py-4 px-6 rounded-xl transition-colors"
-                  >
-                    <Download className="w-5 h-5" />
-                    証拠説明書をダウンロード
-                  </a>
-                )}
+              {/* Result Details */}
+              <div className="space-y-4 mb-6">
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <p className="text-gray-500 text-sm mb-1">証拠番号</p>
+                  <p className="text-gray-900 font-medium">{jobResult.evidenceNumber}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <p className="text-gray-500 text-sm mb-1">取得日時</p>
+                  <p className="text-gray-900 font-medium">{jobResult.capturedAt}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <p className="text-gray-500 text-sm mb-1">SHA-256 ハッシュ値</p>
+                  <p className="text-gray-900 font-mono text-xs break-all">{jobResult.hashValue}</p>
+                </div>
               </div>
+
+              {/* Action Buttons based on isPaid */}
+              {jobResult.isPaid ? (
+                <>
+                  {/* Download Buttons for paid users */}
+                  <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                    {jobResult.pdfUrl && (
+                      <a
+                        href={jobResult.pdfUrl}
+                        className="flex-1 inline-flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold py-4 px-6 rounded-xl transition-colors"
+                      >
+                        <Download className="w-5 h-5" />
+                        PDFをダウンロード
+                      </a>
+                    )}
+                    {jobResult.docxUrl && (
+                      <a
+                        href={jobResult.docxUrl}
+                        className="flex-1 inline-flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-4 px-6 rounded-xl transition-colors"
+                      >
+                        <Download className="w-5 h-5" />
+                        証拠説明書をダウンロード
+                      </a>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Registration/Payment prompts for non-paid users */}
+                  <div className="space-y-3 mb-6">
+                    {!session ? (
+                      <>
+                        <Link
+                          href="/login"
+                          className="w-full inline-flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold py-4 px-6 rounded-xl transition-colors"
+                        >
+                          無料登録して7日間保存する
+                          <ArrowRight className="w-5 h-5" />
+                        </Link>
+                        <button
+                          disabled
+                          className="w-full inline-flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-400 font-semibold py-4 px-6 rounded-xl cursor-not-allowed"
+                        >
+                          <Download className="w-5 h-5" />
+                          今すぐダウンロードする（課金）
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          href="/pricing"
+                          className="w-full inline-flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold py-4 px-6 rounded-xl transition-colors"
+                        >
+                          <Ticket className="w-5 h-5" />
+                          チケットを購入してダウンロード
+                        </Link>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+                    <AlertTriangle className="w-5 h-5 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600">
+                      ダウンロードするには登録と課金が必要です
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      課金後、マイページからいつでもダウンロードできます
+                    </p>
+                  </div>
+                </>
+              )}
 
               {/* Reset Button */}
-              <div className="text-center">
+              <div className="text-center mt-6">
                 <button
                   onClick={handleReset}
-                  className="inline-flex items-center gap-2 text-white/50 hover:text-white transition-colors"
+                  className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
                 >
                   <RefreshCw className="w-4 h-4" />
                   別の投稿を保全する
@@ -297,6 +437,27 @@ function AppContent() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Polygon Blockchain Banner */}
+        <div className="w-full max-w-2xl mt-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <LinkIcon className="w-5 h-5 text-blue-600" />
+              <div>
+                <p className="text-sm font-medium text-gray-900">Polygonブロックチェーンにハッシュを記録</p>
+                <p className="text-xs text-gray-500">改ざんの有無を第三者が独立して検証できます</p>
+              </div>
+            </div>
+            <a
+              href={jobResult?.explorerUrl || "https://polygonscan.com/"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-600 hover:text-blue-800 whitespace-nowrap"
+            >
+              Polygonscanで確認 →
+            </a>
+          </div>
         </div>
 
         {/* Feature Cards */}
@@ -321,8 +482,8 @@ function AppContent() {
         {/* Lawyer Ad Section */}
         <div className="mt-12 w-full max-w-2xl">
           <div className="text-center mb-6">
-            <h3 className="text-lg font-semibold text-white mb-2">誹謗中傷に注力している弁護士</h3>
-            <p className="text-xs text-gray-400">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">誹謗中傷に注力している弁護士</h3>
+            <p className="text-xs text-gray-500">
               掲載している事務所は広告枠としてご契約いただいています。
               <br />
               法律相談・弁護士紹介を当サービスが行うものではありません。
@@ -344,7 +505,7 @@ function AppContent() {
 
         {/* Legal Notice */}
         <div className="mt-12 text-center">
-          <p className="text-xs text-white/30">
+          <p className="text-xs text-gray-400">
             本サービスはエビデンス保全の支援ツールです。証拠説明書はAIが生成したサンプルであり、
             <br className="hidden md:block" />
             最終的な内容の確定はご自身の責任で行ってください。
@@ -357,7 +518,7 @@ function AppContent() {
 
 export default function AppPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-950" />}>
+    <Suspense fallback={<div className="min-h-screen bg-white" />}>
       <AppContent />
     </Suspense>
   );
@@ -373,28 +534,28 @@ function FeatureCard({
   description: string;
 }) {
   return (
-    <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
+    <div className="p-4 bg-white border border-gray-200 rounded-2xl">
       <div className="flex items-center mb-2">
-        <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400 mr-3">
+        <div className="p-2 bg-blue-50 rounded-lg text-blue-600 mr-3">
           {icon}
         </div>
-        <span className="text-white/80 font-medium text-sm">{title}</span>
+        <span className="text-gray-900 font-medium text-sm">{title}</span>
       </div>
-      <p className="text-white/40 text-xs">{description}</p>
+      <p className="text-gray-500 text-xs">{description}</p>
     </div>
   );
 }
 
 function AdSlotCard() {
   return (
-    <div className="min-h-40 bg-gray-800 border border-dashed border-gray-600 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
-      <p className="text-gray-400 text-lg font-medium mb-2">広告枠 募集中</p>
-      <p className="text-gray-500 text-sm mb-4">
+    <div className="min-h-40 bg-white border border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
+      <p className="text-gray-500 text-lg font-medium mb-2">広告枠 募集中</p>
+      <p className="text-gray-400 text-sm mb-4">
         事務所名・対応地域・注力分野などを掲載できます
       </p>
       <Link
         href="/contact"
-        className="inline-flex items-center text-blue-400 hover:text-blue-300 text-sm transition-colors"
+        className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm transition-colors"
       >
         掲載のご希望はこちら
         <ArrowRight className="w-4 h-4 ml-1" />

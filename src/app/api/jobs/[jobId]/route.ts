@@ -1,52 +1,7 @@
+export const maxDuration = 60;
+
 import { NextRequest, NextResponse } from "next/server";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
-import { S3Client } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
-
-/**
- * Job Status Polling API
- *
- * Returns the current status of a capture job.
- * For completed jobs, generates presigned URLs for S3 objects.
- *
- * Required environment variables:
- * - AWS_REGION
- * - AWS_ACCESS_KEY_ID
- * - AWS_SECRET_ACCESS_KEY
- * - DYNAMODB_TABLE_NAME
- * - S3_BUCKET_NAME
- */
-
-const dynamoClient = new DynamoDBClient({
-  region: process.env.AWS_REGION || "ap-northeast-1",
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
-  },
-});
-const docClient = DynamoDBDocumentClient.from(dynamoClient);
-
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || "ap-northeast-1",
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
-  },
-});
-
-const DYNAMODB_TABLE = process.env.DYNAMODB_TABLE_NAME || "watchdog-jobs";
-const S3_BUCKET = process.env.S3_BUCKET_NAME || "watchdog-evidence-pdfs";
-const PRESIGNED_URL_EXPIRY = 3600; // 1 hour
-
-async function generatePresignedUrl(key: string): Promise<string> {
-  const command = new GetObjectCommand({
-    Bucket: S3_BUCKET,
-    Key: key,
-  });
-  return getSignedUrl(s3Client, command, { expiresIn: PRESIGNED_URL_EXPIRY });
-}
+import { jobStore } from "@/lib/infra";
 
 export async function GET(
   request: NextRequest,
@@ -62,33 +17,48 @@ export async function GET(
       );
     }
 
-    // Get job from DynamoDB
-    const result = await docClient.send(
-      new GetCommand({
-        TableName: DYNAMODB_TABLE,
-        Key: { jobId },
-      })
-    );
+    const job = await jobStore.getJob(jobId);
 
-    if (!result.Item) {
+    if (!job) {
       return NextResponse.json(
         { error: "Job not found" },
         { status: 404 }
       );
     }
 
-    const job = result.Item;
+    // Check if job has expired
+    const now = new Date();
+    const isExpired = job.expiresAt && new Date(job.expiresAt) < now;
 
-    // Generate presigned URLs for completed jobs
+    if (isExpired) {
+      return NextResponse.json({
+        jobId: job.jobId,
+        status: "expired",
+        pdfUrl: null,
+        docxUrl: null,
+        hashValue: job.hashValue || null,
+        capturedAt: job.capturedAt || null,
+        evidenceNumber: job.evidenceNumber || null,
+        errorMessage: "このデータは保存期限が切れています",
+        txHash: job.txHash || null,
+        explorerUrl: job.explorerUrl || null,
+        userPlan: job.userPlan || "guest",
+        expiresAt: job.expiresAt || null,
+        isPaid: job.isPaid || false,
+      });
+    }
+
+    // Generate download URLs only when job is done AND user has paid
+    // Private Blobストアのため、プロキシAPI経由でダウンロード
     let pdfUrl = null;
     let docxUrl = null;
 
-    if (job.status === "done") {
+    if (job.status === "done" && job.isPaid) {
       if (job.pdfKey) {
-        pdfUrl = await generatePresignedUrl(job.pdfKey);
+        pdfUrl = `/api/download/${jobId}/pdf`;
       }
       if (job.docxKey) {
-        docxUrl = await generatePresignedUrl(job.docxKey);
+        docxUrl = `/api/download/${jobId}/docx`;
       }
     }
 
@@ -101,6 +71,11 @@ export async function GET(
       capturedAt: job.capturedAt || null,
       evidenceNumber: job.evidenceNumber || null,
       errorMessage: job.errorMessage || null,
+      txHash: job.txHash || null,
+      explorerUrl: job.explorerUrl || null,
+      userPlan: job.userPlan || "guest",
+      expiresAt: job.expiresAt || null,
+      isPaid: job.isPaid || false,
     });
   } catch (error) {
     console.error("Job status error:", error);

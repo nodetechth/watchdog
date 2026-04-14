@@ -1,34 +1,33 @@
 import Link from "next/link";
 import { ShieldCheck, AlertTriangle, Clock, FileText, Hash, FileCheck, ArrowRight, Pencil, User, FileWarning, Check, X, Minus } from "lucide-react";
+import { Header } from "@/components/Header";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen bg-white text-gray-900">
+      <Header />
+
       {/* Hero Section */}
       <section className="relative overflow-hidden">
-        {/* Background Effects */}
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-600/20 blur-[120px] rounded-full pointer-events-none" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/20 blur-[120px] rounded-full pointer-events-none" />
-
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-24 md:py-32">
           <div className="text-center space-y-8">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-2 text-sm text-blue-400">
+            <div className="inline-flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-full px-4 py-2 text-sm text-blue-700">
               <ShieldCheck className="w-4 h-4" />
               法的証拠として保全
             </div>
 
             {/* Main Headline */}
-            <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-tight">
+            <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-tight text-gray-900">
               投稿が消える前に。
               <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">
+              <span className="text-blue-700">
                 法的証拠として自動保全。
               </span>
             </h1>
 
             {/* Sub Copy */}
-            <p className="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-lg md:text-xl text-gray-500 max-w-3xl mx-auto leading-relaxed">
               XやSNSの誹謗中傷投稿を、裁判所が重視するPDF/A形式＋SHA-256ハッシュで自動保存。
               <br className="hidden md:block" />
               証拠説明書の下書きもAIが生成します。
@@ -38,7 +37,7 @@ export default function LandingPage() {
             <div className="flex flex-col items-center gap-6">
               <Link
                 href="/app"
-                className="inline-flex items-center bg-blue-600 hover:bg-blue-500 text-white font-semibold text-lg py-4 px-8 rounded-xl transition-all group"
+                className="inline-flex items-center bg-blue-700 hover:bg-blue-800 text-white font-semibold text-lg py-4 px-8 rounded-xl transition-all group"
               >
                 今すぐ証拠を保全する
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -49,13 +48,13 @@ export default function LandingPage() {
       </section>
 
       {/* Problem Section */}
-      <section className="py-20 bg-gray-900/50">
+      <section className="py-20 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">
               スクリーンショットでは、
               <br className="md:hidden" />
-              <span className="text-red-400">裁判で否認されることがあります</span>
+              <span className="text-red-600">裁判で否認されることがあります</span>
             </h2>
           </div>
 
@@ -80,15 +79,15 @@ export default function LandingPage() {
       </section>
 
       {/* Why Free Services Are Not Enough Section */}
-      <section className="py-20">
+      <section className="py-20 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-8">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">
               無料のURL保存・魚拓サービス単体では
               <br />
-              <span className="text-red-400">証拠能力が十分と評価されない場合があります</span>
+              <span className="text-red-600">証拠能力が十分と評価されない場合があります</span>
             </h2>
-            <p className="text-gray-400 text-lg max-w-3xl mx-auto">
+            <p className="text-gray-500 text-lg max-w-3xl mx-auto">
               手軽に使えるURL保存サービスは多いですが、
               法的証拠としての要件を満たすには不十分な場合があります。
             </p>
@@ -116,11 +115,11 @@ export default function LandingPage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[600px] border-collapse">
               <thead>
-                <tr className="bg-gray-800">
-                  <th className="text-left py-4 px-4 font-semibold border-b border-gray-700">項目</th>
-                  <th className="text-center py-4 px-4 font-semibold border-b border-gray-700">スクショ</th>
-                  <th className="text-center py-4 px-4 font-semibold border-b border-gray-700">無料URL保存・魚拓</th>
-                  <th className="text-center py-4 px-4 font-semibold border-b border-gray-700 text-blue-400">WatchDog</th>
+                <tr className="bg-gray-50">
+                  <th className="text-left py-4 px-4 font-semibold border-b border-gray-200 text-gray-900">項目</th>
+                  <th className="text-center py-4 px-4 font-semibold border-b border-gray-200 text-gray-900">スクショ</th>
+                  <th className="text-center py-4 px-4 font-semibold border-b border-gray-200 text-gray-900">無料URL保存・魚拓</th>
+                  <th className="text-center py-4 px-4 font-semibold border-b border-gray-200 text-blue-700">WatchDog</th>
                 </tr>
               </thead>
               <tbody>
@@ -164,11 +163,11 @@ export default function LandingPage() {
       </section>
 
       {/* How It Works Section */}
-      <section className="py-20 bg-gray-900/50">
+      <section className="py-20 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold">
-              <span className="text-blue-400">3ステップ</span>で完了
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
+              <span className="text-blue-700">3ステップ</span>で完了
             </h2>
           </div>
 
@@ -193,13 +192,13 @@ export default function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-gray-900/50">
+      <section className="py-20 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
               WatchDog が提供する
               <br />
-              <span className="text-blue-400">3つの技術的担保</span>
+              <span className="text-blue-700">3つの技術的担保</span>
             </h2>
           </div>
 
@@ -224,16 +223,16 @@ export default function LandingPage() {
       </section>
 
       {/* Disclaimer Section */}
-      <section className="py-16">
+      <section className="py-16 bg-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
-          <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-8">
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8">
             <div className="flex items-start gap-4">
-              <div className="p-2 bg-yellow-500/10 rounded-lg">
-                <AlertTriangle className="w-6 h-6 text-yellow-500" />
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <AlertTriangle className="w-6 h-6 text-amber-600" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold mb-2">ご利用にあたって</h3>
-                <p className="text-gray-400 leading-relaxed">
+                <h3 className="text-lg font-semibold mb-2 text-gray-900">ご利用にあたって</h3>
+                <p className="text-gray-600 leading-relaxed">
                   証拠説明書はあくまで「案（サンプル）」として出力されます。最終的な内容の確認・修正はご自身または弁護士にご依頼ください。本サービスは法律相談・弁護士紹介を行うものではありません。
                 </p>
               </div>
@@ -243,17 +242,17 @@ export default function LandingPage() {
       </section>
 
       {/* Final CTA Section */}
-      <section className="py-20">
+      <section className="py-20 bg-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">
-            まず1件、<span className="text-blue-400">無料で保全</span>してみてください
+          <h2 className="text-3xl md:text-4xl font-bold mb-6 text-gray-900">
+            まず1件、<span className="text-blue-700">無料で保全</span>してみてください
           </h2>
-          <p className="text-gray-400 mb-8">
+          <p className="text-gray-500 mb-8">
             アカウント登録不要。今すぐ証拠保全を開始できます。
           </p>
           <Link
             href="/app"
-            className="inline-flex items-center bg-blue-600 hover:bg-blue-500 text-white font-semibold text-lg py-4 px-8 rounded-xl transition-all group"
+            className="inline-flex items-center bg-blue-700 hover:bg-blue-800 text-white font-semibold text-lg py-4 px-8 rounded-xl transition-all group"
           >
             証拠を保全する（無料）
             <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -262,18 +261,18 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-800 py-12">
+      <footer className="border-t border-gray-200 py-12 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="w-6 h-6 text-blue-500" />
-              <span className="font-semibold">WatchDog</span>
+              <ShieldCheck className="w-6 h-6 text-blue-600" />
+              <span className="font-semibold text-gray-900">WatchDog</span>
             </div>
-            <div className="flex items-center gap-6 text-sm text-gray-400">
+            <div className="flex items-center gap-6 text-sm text-gray-500">
               <span>運営: nodetech.jp</span>
-              <a href="#" className="hover:text-white transition-colors">利用規約</a>
-              <a href="#" className="hover:text-white transition-colors">プライバシーポリシー</a>
-              <Link href="/contact" className="hover:text-blue-400 transition-colors">広告掲載のご希望はこちら</Link>
+              <a href="#" className="hover:text-gray-900 transition-colors">利用規約</a>
+              <a href="#" className="hover:text-gray-900 transition-colors">プライバシーポリシー</a>
+              <Link href="/contact" className="hover:text-blue-700 transition-colors">広告掲載のご希望はこちら</Link>
             </div>
           </div>
         </div>
@@ -292,12 +291,12 @@ function ProblemCard({
   description: string;
 }) {
   return (
-    <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
-      <div className="p-3 bg-red-500/10 rounded-xl w-fit mb-4">
-        <div className="text-red-400">{icon}</div>
+    <div className="bg-white border border-gray-200 rounded-2xl p-6">
+      <div className="p-3 bg-red-50 rounded-xl w-fit mb-4">
+        <div className="text-red-600">{icon}</div>
       </div>
-      <h3 className="text-lg font-semibold mb-2">{title}</h3>
-      <p className="text-gray-400 text-sm leading-relaxed">{description}</p>
+      <h3 className="text-lg font-semibold mb-2 text-gray-900">{title}</h3>
+      <p className="text-gray-500 text-sm leading-relaxed">{description}</p>
     </div>
   );
 }
@@ -313,17 +312,17 @@ function StepCard({
 }) {
   return (
     <div className="relative">
-      <div className="text-7xl font-bold text-blue-500/10 absolute -top-4 -left-2">
+      <div className="text-7xl font-bold text-blue-100 absolute -top-4 -left-2">
         {number}
       </div>
       <div className="relative pt-8">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-sm font-bold">
+          <div className="w-8 h-8 bg-blue-700 rounded-full flex items-center justify-center text-sm font-bold text-white">
             {number}
           </div>
-          <h3 className="text-lg font-semibold">{title}</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
         </div>
-        <p className="text-gray-400 text-sm leading-relaxed pl-11">{description}</p>
+        <p className="text-gray-500 text-sm leading-relaxed pl-11">{description}</p>
       </div>
     </div>
   );
@@ -339,12 +338,12 @@ function FeatureCard({
   description: string;
 }) {
   return (
-    <div className="bg-gray-800/30 border border-gray-700/50 rounded-2xl p-6 hover:border-blue-500/30 transition-colors">
-      <div className="p-3 bg-blue-500/10 rounded-xl w-fit mb-4">
-        <div className="text-blue-400">{icon}</div>
+    <div className="bg-white border border-gray-200 rounded-2xl p-6 hover:border-blue-300 transition-colors">
+      <div className="p-3 bg-blue-50 rounded-xl w-fit mb-4">
+        <div className="text-blue-600">{icon}</div>
       </div>
-      <h3 className="text-lg font-semibold mb-2">{title}</h3>
-      <p className="text-gray-400 text-sm leading-relaxed">{description}</p>
+      <h3 className="text-lg font-semibold mb-2 text-gray-900">{title}</h3>
+      <p className="text-gray-500 text-sm leading-relaxed">{description}</p>
     </div>
   );
 }
@@ -363,17 +362,17 @@ function ComparisonRow({
   const renderStatus = (status: "yes" | "no" | "partial") => {
     switch (status) {
       case "yes":
-        return <Check className="w-5 h-5 text-blue-400 mx-auto" />;
+        return <Check className="w-5 h-5 text-blue-600 mx-auto" />;
       case "no":
-        return <X className="w-5 h-5 text-red-400 mx-auto" />;
+        return <X className="w-5 h-5 text-red-500 mx-auto" />;
       case "partial":
-        return <Minus className="w-5 h-5 text-yellow-400 mx-auto" />;
+        return <Minus className="w-5 h-5 text-amber-500 mx-auto" />;
     }
   };
 
   return (
-    <tr className="border-b border-gray-700/50 hover:bg-gray-800/30 transition-colors">
-      <td className="py-4 px-4 text-gray-300">{label}</td>
+    <tr className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
+      <td className="py-4 px-4 text-gray-700">{label}</td>
       <td className="py-4 px-4 text-center">{renderStatus(screenshot)}</td>
       <td className="py-4 px-4 text-center">{renderStatus(freeService)}</td>
       <td className="py-4 px-4 text-center">{renderStatus(watchdog)}</td>
