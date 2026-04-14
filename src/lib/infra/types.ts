@@ -65,5 +65,30 @@ export interface UserStore {
 export interface BlobStore {
   save(key: string, data: Buffer, contentType: string): Promise<string>;
   getDownloadUrl(key: string): Promise<string>;
+  getSignedUrl(key: string, expiresInSeconds: number): Promise<string>;
   delete(key: string): Promise<void>;
+}
+
+// Verification Token types
+export interface VerificationToken {
+  id: string;
+  jobId: string;
+  token: string;
+  createdAt: string;
+  expiresAt: string;
+  createdBy: string;
+  isRevoked: boolean;
+}
+
+export interface VerificationTokenCreateInput {
+  jobId: string;
+  createdBy: string;
+  expiresAt: string;
+}
+
+export interface VerificationTokenStore {
+  createToken(input: VerificationTokenCreateInput): Promise<VerificationToken>;
+  getTokenByToken(token: string): Promise<VerificationToken | null>;
+  getTokenByJobId(jobId: string): Promise<VerificationToken | null>;
+  revokeTokensByJobId(jobId: string): Promise<void>;
 }

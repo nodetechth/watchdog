@@ -15,6 +15,9 @@ import {
   Ticket,
   FileCheck,
   ShieldCheck,
+  Share2,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Job } from "@/lib/infra/types";
 import { Header } from "@/components/Header";
@@ -25,6 +28,8 @@ export default function DashboardPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [usingTicket, setUsingTicket] = useState<string | null>(null);
+  const [generatingShareLink, setGeneratingShareLink] = useState<string | null>(null);
+  const [copiedJobId, setCopiedJobId] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -174,6 +179,38 @@ export default function DashboardPage() {
       alert("チケットの使用に失敗しました");
     } finally {
       setUsingTicket(null);
+    }
+  };
+
+  // 共有リンクを発行
+  const generateShareLink = async (jobId: string) => {
+    setGeneratingShareLink(jobId);
+    try {
+      const res = await fetch("/api/verify/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "リンクの発行に失敗しました");
+        return;
+      }
+
+      // Copy URL to clipboard
+      await navigator.clipboard.writeText(data.url);
+      setCopiedJobId(jobId);
+
+      // Reset copied state after 3 seconds
+      setTimeout(() => {
+        setCopiedJobId(null);
+      }, 3000);
+    } catch (error) {
+      console.error("Failed to generate share link:", error);
+      alert("リンクの発行に失敗しました");
+    } finally {
+      setGeneratingShareLink(null);
     }
   };
 
@@ -344,6 +381,20 @@ export default function DashboardPage() {
                                 <Download className="w-4 h-4" />
                                 DOCX
                               </a>
+                              <button
+                                onClick={() => generateShareLink(job.jobId)}
+                                disabled={generatingShareLink === job.jobId}
+                                className="inline-flex items-center gap-1 text-sm text-purple-600 hover:text-purple-800 disabled:text-gray-400"
+                              >
+                                {generatingShareLink === job.jobId ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : copiedJobId === job.jobId ? (
+                                  <Check className="w-4 h-4" />
+                                ) : (
+                                  <Share2 className="w-4 h-4" />
+                                )}
+                                {copiedJobId === job.jobId ? "コピー済" : "共有"}
+                              </button>
                             </>
                           ) : job.status === "done" && !job.isPaid ? (
                             <button

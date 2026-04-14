@@ -39,6 +39,19 @@ export const awsBlobStore: BlobStore = {
     return signedUrl;
   },
 
+  async getSignedUrl(key: string, expiresInSeconds: number): Promise<string> {
+    const command = new GetObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key,
+    });
+
+    const signedUrl = await getSignedUrl(s3Client, command, {
+      expiresIn: expiresInSeconds,
+    });
+
+    return signedUrl;
+  },
+
   async delete(key: string): Promise<void> {
     try {
       await s3Client.send(

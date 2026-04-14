@@ -37,6 +37,26 @@ export const vercelBlobStore: BlobStore = {
     }
   },
 
+  async getSignedUrl(key: string, expiresInSeconds: number): Promise<string> {
+    if (!key.startsWith("http")) {
+      throw new Error(
+        "Vercel Blob requires the full URL. Store the URL returned from save() instead of just the key."
+      );
+    }
+
+    try {
+      // Vercel Blobの署名付きURLを生成（有効期限指定）
+      // Note: Vercel BlobのgetDownloadUrl()はデフォルトで1時間有効
+      // 長期間有効なURLが必要な場合は、アクセス時に都度生成する設計にする
+      const downloadUrl = await getBlobDownloadUrl(key);
+      console.log(`[BlobStore] Signed URL generated for: ${key}, expires in ${expiresInSeconds}s`);
+      return downloadUrl;
+    } catch (error) {
+      console.error(`[BlobStore] getSignedUrl failed for ${key}:`, error);
+      throw error;
+    }
+  },
+
   async delete(key: string): Promise<void> {
     if (!key.startsWith("http")) {
       console.warn(`[BlobStore] Invalid key for delete: ${key}`);

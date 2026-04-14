@@ -695,6 +695,19 @@ export async function runCapture(
       word-break: break-all;
       color: #333;
     }
+    .verify-info {
+      margin-top: 15px;
+      padding: 10px;
+      background: #e8f4fd;
+      border: 1px solid #b8daff;
+      border-radius: 4px;
+      font-size: 9px;
+      color: #004085;
+    }
+    .verify-info strong {
+      display: block;
+      margin-bottom: 4px;
+    }
   </style>
 </head>
 <body>
@@ -724,6 +737,12 @@ export async function runCapture(
 
   <div class="hash-info">
     <strong>SHA-256:</strong> ${screenshotHash}
+  </div>
+
+  <div class="verify-info">
+    <strong>【改ざん検証方法】</strong>
+    証拠の所有者から検証用リンクを受け取り、WatchDogの検証ページ（/verify）でPNGファイルをアップロードしてください。
+    ハッシュ値がPolygon Amoyブロックチェーンの記録と一致すれば、改ざんがないことが証明されます。
   </div>
 </body>
 </html>

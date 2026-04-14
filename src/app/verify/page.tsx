@@ -15,10 +15,14 @@ import {
   Clock,
   User,
   Link as LinkIcon,
+  Download,
+  Calendar,
+  Shield,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 
 type VerifyStatus = "IDLE" | "VERIFYING" | "MATCH" | "MISMATCH" | "NOT_FOUND" | "ERROR";
+type TokenStatus = "LOADING" | "VALID" | "INVALID" | "EXPIRED" | "NOT_FOUND" | "ERROR";
 
 interface VerifyResult {
   status: "MATCH" | "MISMATCH" | "NOT_FOUND";
@@ -36,6 +40,21 @@ interface VerifyResult {
   source: "blockchain" | "database";
 }
 
+interface TokenInfo {
+  jobId: string;
+  metadata: {
+    posterId: string;
+    postedAt: string | null;
+    capturedAt: string | null;
+    tweetUrl: string;
+  };
+  pngUrl: string | null;
+  hashValue: string | null;
+  txHash: string | null;
+  explorerUrl: string | null;
+  expiresAt: string;
+}
+
 async function calculateSHA256(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
   const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
@@ -46,6 +65,7 @@ async function calculateSHA256(file: File): Promise<string> {
 function VerifyContent() {
   const searchParams = useSearchParams();
   const jobIdParam = searchParams.get("jobId");
+  const tokenParam = searchParams.get("token");
 
   const [jobId, setJobId] = useState(jobIdParam || "");
   const [file, setFile] = useState<File | null>(null);
@@ -54,6 +74,48 @@ function VerifyContent() {
   const [, setCalculatedHash] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [isDragOver, setIsDragOver] = useState(false);
+
+  // Token-based verification state
+  const [tokenStatus, setTokenStatus] = useState<TokenStatus>(tokenParam ? "LOADING" : "NOT_FOUND");
+  const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null);
+  const [tokenError, setTokenError] = useState<string>("");
+
+  // Fetch token info when token parameter is present
+  useEffect(() => {
+    if (tokenParam) {
+      fetchTokenInfo(tokenParam);
+    }
+  }, [tokenParam]);
+
+  const fetchTokenInfo = async (token: string) => {
+    setTokenStatus("LOADING");
+    try {
+      const res = await fetch(`/api/verify/token/${token}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 410) {
+          setTokenStatus(data.code === "REVOKED" ? "INVALID" : "EXPIRED");
+          setTokenError(data.error);
+        } else if (res.status === 404) {
+          setTokenStatus("NOT_FOUND");
+          setTokenError("このリンクは存在しません");
+        } else {
+          setTokenStatus("ERROR");
+          setTokenError(data.error || "トークンの検証に失敗しました");
+        }
+        return;
+      }
+
+      setTokenInfo(data);
+      setJobId(data.jobId);
+      setTokenStatus("VALID");
+    } catch (error) {
+      console.error("Token fetch error:", error);
+      setTokenStatus("ERROR");
+      setTokenError("トークンの検証に失敗しました");
+    }
+  };
 
   useEffect(() => {
     if (jobIdParam) {
@@ -134,6 +196,59 @@ function VerifyContent() {
     setIsDragOver(false);
   }, []);
 
+  // Format date for display
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "-";
+    return new Date(dateString).toLocaleString("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // Token invalid/expired UI
+  if (tokenParam && (tokenStatus === "INVALID" || tokenStatus === "EXPIRED" || tokenStatus === "NOT_FOUND" || tokenStatus === "ERROR")) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-8 text-center">
+            <AlertTriangle className="w-12 h-12 text-amber-600 mx-auto mb-4" />
+            <h1 className="text-xl font-bold text-amber-800 mb-2">
+              {tokenStatus === "EXPIRED" ? "リンクの有効期限が切れています" : "無効なリンクです"}
+            </h1>
+            <p className="text-amber-700 mb-6">
+              {tokenError || "このリンクは無効または期限切れです。証拠の所有者に再発行を依頼してください。"}
+            </p>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 bg-amber-100 hover:bg-amber-200 text-amber-800 px-6 py-3 rounded-lg transition-colors"
+            >
+              トップページに戻る
+            </Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Token loading UI
+  if (tokenParam && tokenStatus === "LOADING") {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
+          <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
+            <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">検証リンクを確認中...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -150,8 +265,79 @@ function VerifyContent() {
           </p>
         </div>
 
-        {/* Job ID Input (if not provided via URL) */}
-        {!jobIdParam && (
+        {/* Token-based Evidence Card */}
+        {tokenParam && tokenStatus === "VALID" && tokenInfo && (
+          <div className="bg-white border border-blue-200 rounded-xl p-6 mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className="w-5 h-5 text-blue-600" />
+              <h2 className="text-lg font-bold text-gray-900">共有された証拠</h2>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4 mb-6">
+              <div>
+                <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+                  <User className="w-4 h-4" />
+                  投稿者
+                </div>
+                <p className="text-gray-900 font-medium">{tokenInfo.metadata.posterId || "-"}</p>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+                  <Clock className="w-4 h-4" />
+                  キャプチャ日時
+                </div>
+                <p className="text-gray-900">{formatDate(tokenInfo.metadata.capturedAt)}</p>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+                  <LinkIcon className="w-4 h-4" />
+                  元のURL
+                </div>
+                <a
+                  href={tokenInfo.metadata.tweetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 text-sm truncate block"
+                >
+                  {tokenInfo.metadata.tweetUrl}
+                </a>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+                  <Calendar className="w-4 h-4" />
+                  リンク有効期限
+                </div>
+                <p className="text-gray-900">{formatDate(tokenInfo.expiresAt)}</p>
+              </div>
+            </div>
+
+            {tokenInfo.pngUrl && (
+              <a
+                href={tokenInfo.pngUrl}
+                download
+                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors"
+              >
+                <Download className="w-5 h-5" />
+                検証用PNGをダウンロード
+              </a>
+            )}
+
+            {tokenInfo.explorerUrl && (
+              <a
+                href={tokenInfo.explorerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 ml-3 text-blue-600 hover:text-blue-800 text-sm"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Polygonscanで確認
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Job ID Input (if not provided via URL or token) */}
+        {!jobIdParam && !tokenParam && (
           <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Job ID
