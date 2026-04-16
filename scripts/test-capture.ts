@@ -91,7 +91,7 @@ async function testCapture() {
   // セッション確立
   console.log("\n=== セッション確立 ===");
   console.log("Navigating to x.com/home...");
-  await page.goto("https://x.com/home", { waitUntil: "networkidle", timeout: 20000 });
+  await page.goto("https://x.com/home", { waitUntil: "networkidle", timeout: 40000 });
   await page.waitForTimeout(3000);
 
   const homeUrl = page.url();

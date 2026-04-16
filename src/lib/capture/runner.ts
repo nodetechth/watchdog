@@ -426,7 +426,7 @@ export async function runCapture(
 
       // First visit X homepage to establish session
       console.log("Establishing X session...");
-      await page.goto("https://x.com/home", { waitUntil: "networkidle", timeout: 20000 });
+      await page.goto("https://x.com/home", { waitUntil: "networkidle", timeout: 40000 });
       await page.waitForTimeout(3000);
 
       // セッション確立の確認
